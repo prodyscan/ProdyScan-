@@ -24,6 +24,42 @@ app = Flask(__name__)
 def home():
     # Affiche la page HTML
     return render_template("index.html")
+@app.route("/api/scan", methods=["POST"])
+def api_scan():
+    # On récupère le JSON envoyé par le front
+    data = request.get_json(silent=True) or {}
+    code = (data.get("code") or "").strip()
+
+    if not code:
+        return jsonify({
+            "ok": False,
+            "error": "Code produit manquant."
+        }), 400
+
+    # --- LOGIQUE D'EXEMPLE ---
+    # Ici tu peux mettre ta vraie logique métier plus tard.
+    # Pour l'instant on fait un petit algo simple :
+
+    status = "Authentique"
+    risk_level = "faible"
+    details = "Produit jugé authentique (exemple de logique)."
+
+    # Si le code contient 'FAKE' on le marque comme suspect, juste pour la démo
+    if "FAKE" in code.upper():
+        status = "Suspect"
+        risk_level = "élevé"
+        details = "Ce code semble invalide ou suspect."
+
+    response = {
+        "ok": True,
+        "code": code,
+        "product_name": f"Produit {code}",
+        "status": status,
+        "risk_level": risk_level,
+        "details": details,
+    }
+
+    return jsonify(response), 200
 # Client OpenAI
 import os
 from openai import OpenAI
