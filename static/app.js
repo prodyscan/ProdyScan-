@@ -1,3 +1,7 @@
+// =====================
+// Sélection des éléments
+// =====================
+
 const fileInput = document.getElementById("file-input");
 const chooseBtn = document.getElementById("choose-btn");
 const fileNameEl = document.getElementById("file-name");
@@ -23,7 +27,9 @@ const resultLink = document.getElementById("result-link");
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history");
 
-// ------------------ UTILITAIRES ------------------ //
+// =====================
+// UTILITAIRES
+// =====================
 
 function setLoading(isLoading) {
   loader.hidden = !isLoading;
@@ -44,6 +50,7 @@ function updatePreview() {
     previewImg.src = "";
     return;
   }
+
   fileNameEl.textContent = file.name;
   const url = URL.createObjectURL(file);
   previewImg.src = url;
@@ -90,52 +97,40 @@ function renderHistory() {
       resultDescription.textContent = item.description;
       resultShop.textContent = "Boutique : " + item.shop_label;
       resultCountry.textContent = "Pays : " + item.country_label;
-      resultSource.textContent = "Source : " + item.source;
-      resultLink.href = item.url;
+      resultSource.textContent = "Source : " + (item.source || "");
+      resultLink.href = item.url || "#";
     });
     historyList.appendChild(div);
   });
 }
 
-// ------------------ HANDLERS ------------------ //
+// =====================
+// HANDLERS UI
+// =====================
 
-// Quand on clique sur le bouton => on ouvre l’input fichier
-pickImageBtn.addEventListener("click", () => {
+// Bouton "Choisir / Prendre une photo"
+chooseBtn.addEventListener("click", () => {
   fileInput.click();
 });
 
-// Quand un fichier est choisi => on affiche le nom
+// Quand un fichier est choisi, on met à jour l’aperçu
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  fileNameEl.textContent = file ? file.name : "Aucune image sélectionnée";
+  updatePreview();
 });
 
-setLoading(true);
+// Effacer l’historique
+clearHistoryBtn.addEventListener("click", () => {
+  localStorage.removeItem("prodyscan_img_history");
+  renderHistory();
+});
 
-try {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("country", country);
-  formData.append("shop", shop);
-  formData.append("custom_shop", customShop);
+// =====================
+// ANALYSE IMAGE
+// =====================
 
-  const response = await fetch("/analyse", {
-    method: "POST",
-    body: formData,
-  });
-
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("Réponse inattendue du serveur.");
-  }
-
-  if (!response.ok || data.error) {
-    throw new Error(data.error || "Erreur lors de l’analyse.");
-  }
-
-  // ... (le reste inchangé)
+async function handleAnalyse() {
+  showError("");
+  resultCard.hidden = true;
 
   const file = fileInput.files[0];
   if (!file) {
@@ -149,7 +144,7 @@ try {
 
   setLoading(true);
 
-  try:
+  try {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("country", country);
@@ -172,21 +167,17 @@ try {
       throw new Error(data.error || "Erreur lors de l’analyse.");
     }
 
-    // Affiche résultat
+    // -------- Affichage du résultat --------
     resultCard.hidden = false;
     resultDescription.textContent = data.description || "(aucune description)";
-    resultShop.textContent = "Boutique : " + (data.shop_label || "-");
+    resultShop.textContent = "Boutique : " + (data.shop_label || data.shop || "-");
     resultCountry.textContent = "Pays : " + (data.country || "global");
     resultSource.textContent =
       "Source : " + (data.source || (data.openai_enabled ? "vision" : "ocr"));
 
-    if (data.url) {
-      resultLink.href = data.url;
-    } else {
-      resultLink.href = "#";
-    }
+    resultLink.href = data.url || "#";
 
-    // Historique
+    // -------- Historique --------
     const now = new Date();
     const dateStr =
       now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0, 5);
@@ -207,9 +198,14 @@ try {
   }
 }
 
+// Clic sur "Analyser l’image"
 analyseBtn.addEventListener("click", handleAnalyse);
 
-// Init
+// =====================
+// INIT AU CHARGEMENT
+// =====================
+
 renderHistory();
 updatePreview();
 showError("");
+setLoading(false);
