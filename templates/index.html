@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <title>ProdyScan</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+  />
 </head>
 <body>
   <div class="app">
@@ -12,67 +15,139 @@
       <div class="logo-circle">P</div>
       <div>
         <h1>ProdyScan</h1>
-        <p>Vérifie rapidement l’intégrité de tes produits.</p>
+        <p>Prends une photo d’un produit et trouve des offres similaires en ligne.</p>
+        {% if not has_openai %}
+        <p class="info-badge">
+          ⚠️ OpenAI Vision désactivé (clé absente) : seule la lecture de texte (OCR) sera utilisée.
+        </p>
+        {% endif %}
       </div>
     </header>
 
     <main class="app-main">
+      <!-- Bloc image -->
       <section class="card">
-        <h2>Scanner / vérifier un produit</h2>
+        <h2>1. Choisir ou prendre une photo</h2>
         <p class="hint">
-          Entre un code barre, QR, numéro de lot, ou identifiant produit.
+          Utilise de préférence une photo bien cadrée du produit ou de son emballage.
         </p>
 
-        <div class="input-row">
-          <input
-            id="code-input"
-            type="text"
-            placeholder="Ex : 123456789ABC"
-            autocomplete="off"
-          />
-          <button id="scan-btn">Analyser</button>
+        <input
+          id="file-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+        />
+
+        <div class="image-actions">
+          <button id="choose-btn">Choisir / Prendre une photo</button>
+          <span id="file-name" class="file-name">Aucune image sélectionnée</span>
+        </div>
+
+        <div id="preview-wrapper" class="preview-wrapper" hidden>
+          <img id="preview-img" alt="Aperçu de l'image" />
         </div>
 
         <p id="error-text" class="error-text" hidden></p>
 
         <div id="loader" class="loader" hidden>
-          Analyse en cours…
-        </div>
-
-        <div id="result-card" class="result-card" hidden>
-          <div class="result-header">
-            <span id="status-pill" class="status-pill status-ok">Authentique</span>
-            <span class="result-code" id="result-code"></span>
-          </div>
-          <h3 id="result-name">Nom du produit</h3>
-          <p id="result-details" class="result-details"></p>
-
-          <div class="result-meta">
-            <div>
-              <span class="meta-label">Niveau de risque</span>
-              <span id="risk-level" class="meta-value">-</span>
-            </div>
-            <div>
-              <span class="meta-label">Dernière analyse</span>
-              <span class="meta-value" id="last-check">À l’instant</span>
-            </div>
-          </div>
+          Analyse de l’image en cours…
         </div>
       </section>
 
+      <!-- Bloc boutique + pays -->
+      <section class="card">
+        <h2>2. Où veux-tu chercher ?</h2>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="country-select">Pays cible</label>
+            <select id="country-select">
+              <option value="global">🌍 Global</option>
+              <option value="civ">🇨🇮 Côte d’Ivoire</option>
+              <option value="sen">🇸🇳 Sénégal</option>
+              <option value="cmr">🇨🇲 Cameroun</option>
+              <option value="maroc">🇲🇦 Maroc</option>
+              <option value="tunisie">🇹🇳 Tunisie</option>
+              <option value="france">🇫🇷 France</option>
+              <option value="algerie">🇩🇿 Algérie</option>
+              <option value="mali">🇲🇱 Mali</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="shop-select">Boutique / plateforme</label>
+            <select id="shop-select">
+              <option value="google">🔍 Google (par défaut)</option>
+              <option value="jumia">🛒 Jumia</option>
+              <option value="amazon">📦 Amazon</option>
+              <option value="aliexpress">🛍 AliExpress</option>
+              <option value="ebay">🌀 eBay</option>
+              <option value="cdiscount">🇫🇷 Cdiscount</option>
+              <option value="alibaba">🏭 Alibaba</option>
+              <option value="custom">⭐ Boutique personnalisée (champ ci-dessous)</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="custom-shop">
+              Boutique personnalisée (optionnel)
+              <span class="label-hint">
+                Exemple : <code>monshop.com</code> ou <code>boutiqueXYZ</code>
+              </span>
+            </label>
+            <input
+              id="custom-shop"
+              type="text"
+              placeholder="Nom ou domaine de ta boutique locale"
+            />
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <button id="analyse-btn" class="primary">Analyser l’image</button>
+        </div>
+      </section>
+
+      <!-- Résultat -->
+      <section class="card" id="result-card" hidden>
+        <h2>Résultat de l’analyse</h2>
+
+        <p class="result-description" id="result-description">
+          Description du produit…
+        </p>
+
+        <div class="result-meta">
+          <span class="badge" id="result-shop">Boutique : -</span>
+          <span class="badge" id="result-country">Pays : -</span>
+          <span class="badge badge-soft" id="result-source">Source : -</span>
+        </div>
+
+        <a id="result-link" href="#" target="_blank" class="result-link">
+          Voir les offres similaires 🔗
+        </a>
+      </section>
+
+      <!-- Historique -->
       <section class="card history-card">
         <div class="history-header">
           <h2>Historique récent</h2>
           <button id="clear-history" class="link-button">Effacer</button>
         </div>
         <div id="history-list" class="history-list empty">
-          <p class="history-empty">Aucune analyse encore. Lance ta première vérification 👇</p>
+          <p class="history-empty">
+            Aucune analyse encore. Lance ta première vérification 👇
+          </p>
         </div>
       </section>
     </main>
 
     <footer class="app-footer">
-      <small>ProdyScan • backend : <span class="badge badge-ok">ON</span></small>
+      <small>
+        ProdyScan • Analyse d’images avec OCR
+        {% if has_openai %} + OpenAI Vision{% else %}(Vision désactivée){% endif %}
+      </small>
     </footer>
   </div>
 
