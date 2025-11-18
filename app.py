@@ -3,8 +3,7 @@ import base64
 import json
 import hashlib
 from io import BytesIO
-
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from PIL import Image, ImageOps, ImageEnhance
 import pytesseract
 from urllib.parse import quote_plus
