@@ -292,9 +292,20 @@ def analyse():
     # 5) IA Vision
     ai_text = ai_describe_image(processed_bytes)
 
-    # 6) OCR
-    ocr_text = ocr_extract_text(pil_img)
+    # 6) OCR (gratuit) en secours ou pour compléter
+ocr_text = ocr_extract_text(pil_img)
 
+# Choix du texte final
+if ai_text:
+    final_query = ai_text
+    ai_used = True
+elif ocr_text:
+    final_query = ocr_text
+    ai_used = False
+else:
+    # ⚠️ FALLBACK : description générique
+    final_query = "photo de produit en ligne"
+    ai_used = False
     # 7) Choix de la requête finale
     if ai_text and ocr_text:
         final_query = f"{ai_text} {ocr_text}"
