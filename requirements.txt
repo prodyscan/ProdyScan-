@@ -1,0 +1,5 @@
+flask
+pillow
+pytesseract
+openai
+urllib3
