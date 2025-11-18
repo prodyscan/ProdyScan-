@@ -32,17 +32,21 @@ const clearHistoryBtn = document.getElementById("clear-history");
 // ============================
 
 function setLoading(isLoading) {
+  if (!loader || !analyseBtn) return;
   loader.hidden = !isLoading;
   analyseBtn.disabled = isLoading;
   analyseBtn.textContent = isLoading ? "Analyse en cours..." : "Analyser l’image";
 }
 
 function showError(msg) {
+  if (!errorText) return;
   errorText.textContent = msg || "";
   errorText.hidden = !msg;
 }
 
 function updatePreview() {
+  if (!fileInput || !fileNameEl || !previewWrapper || !previewImg) return;
+
   const file = fileInput.files[0];
   if (!file) {
     fileNameEl.textContent = "Aucune image sélectionnée";
@@ -50,6 +54,7 @@ function updatePreview() {
     previewImg.src = "";
     return;
   }
+
   fileNameEl.textContent = file.name;
   const url = URL.createObjectURL(file);
   previewImg.src = url;
@@ -57,9 +62,7 @@ function updatePreview() {
 }
 
 function addToHistory(entry) {
-  let history = JSON.parse(
-    localStorage.getItem("prodyscan_img_history") || "[]"
-  );
+  let history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
   history.unshift(entry);
   history = history.slice(0, 10);
   localStorage.setItem("prodyscan_img_history", JSON.stringify(history));
@@ -67,9 +70,9 @@ function addToHistory(entry) {
 }
 
 function renderHistory() {
-  const history = JSON.parse(
-    localStorage.getItem("prodyscan_img_history") || "[]"
-  );
+  if (!historyList) return;
+
+  const history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
   historyList.innerHTML = "";
 
   if (!history.length) {
@@ -96,11 +99,13 @@ function renderHistory() {
       </div>
     `;
     div.addEventListener("click", () => {
+      // Remplir la carte résultat avec l'entrée d'historique
+      if (!resultCard) return;
       resultCard.hidden = false;
       resultDescription.textContent = item.description;
       resultShop.textContent = "Boutique : " + item.shop_label;
       resultCountry.textContent = "Pays : " + item.country_label;
-      resultSource.textContent = "Source : " + item.source;
+      resultSource.textContent = "Source : " + (item.source || "-");
       resultLink.href = item.url || "#";
     });
     historyList.appendChild(div);
@@ -111,26 +116,38 @@ function renderHistory() {
 // Handlers
 // ============================
 
-// Bouton "Choisir / Prendre une photo"
-chooseBtn.addEventListener("click", () => {
-  fileInput.click();
-});
+// Ouvrir l’input fichier quand on clique sur le bouton
+if (chooseBtn && fileInput) {
+  chooseBtn.addEventListener("click", () => {
+    fileInput.click();
+  });
+}
 
-// Mise à jour du nom + preview quand on choisit une image
-fileInput.addEventListener("change", () => {
-  updatePreview();
-});
+// Quand un fichier est choisi => mise à jour de l’aperçu
+if (fileInput) {
+  fileInput.addEventListener("change", updatePreview);
+}
 
 // Effacer l’historique
-clearHistoryBtn.addEventListener("click", () => {
-  localStorage.removeItem("prodyscan_img_history");
-  renderHistory();
-});
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener("click", () => {
+    localStorage.removeItem("prodyscan_img_history");
+    renderHistory();
+  });
+}
 
-// Analyse
+// ============================
+// Analyse d’image
+// ============================
+
 async function handleAnalyse() {
   showError("");
-  resultCard.hidden = true;
+  if (resultCard) resultCard.hidden = true;
+
+  if (!fileInput) {
+    showError("Erreur interne : champ fichier introuvable.");
+    return;
+  }
 
   const file = fileInput.files[0];
   if (!file) {
@@ -138,9 +155,9 @@ async function handleAnalyse() {
     return;
   }
 
-  const country = countrySelect.value;
-  const shop = shopSelect.value;
-  const customShop = customShopInput.value.trim();
+  const country = countrySelect ? countrySelect.value : "global";
+  const shop = shopSelect ? shopSelect.value : "google";
+  const customShop = customShopInput ? customShopInput.value.trim() : "";
 
   setLoading(true);
 
@@ -160,6 +177,7 @@ async function handleAnalyse() {
     try {
       data = await response.json();
     } catch (e) {
+      console.error(e);
       throw new Error("Réponse inattendue du serveur.");
     }
 
@@ -167,28 +185,35 @@ async function handleAnalyse() {
       throw new Error(data.error || "Erreur lors de l’analyse.");
     }
 
-    // Affiche résultat
-    resultCard.hidden = false;
-    resultDescription.textContent = data.description || "(aucune description)";
-    resultShop.textContent = "Boutique : " + (data.shop_label || "-");
-    resultCountry.textContent = "Pays : " + (data.country || "global");
-    resultSource.textContent =
-      "Source : " +
-      (data.source || (data.openai_enabled ? "vision" : "ocr"));
+    // -------- Affichage du résultat --------
+    if (resultCard) resultCard.hidden = false;
 
-    resultLink.href = data.url || "#";
+    const description = data.description || "(aucune description)";
+    const shopLabel = data.shop_label || data.shop || "-";
+    const countryLabel = data.country || "global";
+    const sourceLabel =
+      data.source || (data.openai_enabled ? "vision" : "ocr");
 
-    // Historique
+    if (resultDescription) resultDescription.textContent = description;
+    if (resultShop) resultShop.textContent = "Boutique : " + shopLabel;
+    if (resultCountry) resultCountry.textContent = "Pays : " + countryLabel;
+    if (resultSource) resultSource.textContent = "Source : " + sourceLabel;
+
+    if (resultLink) {
+      resultLink.href = data.url || "#";
+    }
+
+    // -------- Historique --------
     const now = new Date();
     const dateStr =
       now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0, 5);
 
     addToHistory({
-      description: data.description || "",
-      shop_label: data.shop_label || data.shop || "-",
-      country_label: data.country || "global",
+      description,
+      shop_label: shopLabel,
+      country_label: countryLabel,
       url: data.url || "#",
-      source: data.source || "",
+      source: sourceLabel,
       date: dateStr,
     });
   } catch (err) {
@@ -199,7 +224,10 @@ async function handleAnalyse() {
   }
 }
 
-analyseBtn.addEventListener("click", handleAnalyse);
+// Lier le bouton "Analyser l’image"
+if (analyseBtn) {
+  analyseBtn.addEventListener("click", handleAnalyse);
+}
 
 // ============================
 // Init
@@ -208,3 +236,4 @@ analyseBtn.addEventListener("click", handleAnalyse);
 renderHistory();
 updatePreview();
 showError("");
+setLoading(false);
