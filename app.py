@@ -18,10 +18,14 @@ CACHE_FILE = "cache.json"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
+from flask import Flask, request, jsonify, render_template
+
+# ... le reste de ton code au-dessus ne change pas
 
 @app.route("/")
-def index():
-    return "ProdyScan backend OK"
+def home():
+    # Affiche la page HTML
+    return render_template("index.html")
 # Client OpenAI
 import os
 from openai import OpenAI
