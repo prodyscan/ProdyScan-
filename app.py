@@ -18,7 +18,6 @@ CACHE_FILE = "cache.json"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
-from flask import Flask, request, jsonify, render_template
 
 # ... le reste de ton code au-dessus ne change pas
 
