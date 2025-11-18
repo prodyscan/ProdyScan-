@@ -1,6 +1,6 @@
-// =====================
+// ============================
 // Sélection des éléments
-// =====================
+// ============================
 
 const fileInput = document.getElementById("file-input");
 const chooseBtn = document.getElementById("choose-btn");
@@ -27,9 +27,9 @@ const resultLink = document.getElementById("result-link");
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history");
 
-// =====================
-// UTILITAIRES
-// =====================
+// ============================
+// Utilitaires
+// ============================
 
 function setLoading(isLoading) {
   loader.hidden = !isLoading;
@@ -50,7 +50,6 @@ function updatePreview() {
     previewImg.src = "";
     return;
   }
-
   fileNameEl.textContent = file.name;
   const url = URL.createObjectURL(file);
   previewImg.src = url;
@@ -58,7 +57,9 @@ function updatePreview() {
 }
 
 function addToHistory(entry) {
-  let history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
+  let history = JSON.parse(
+    localStorage.getItem("prodyscan_img_history") || "[]"
+  );
   history.unshift(entry);
   history = history.slice(0, 10);
   localStorage.setItem("prodyscan_img_history", JSON.stringify(history));
@@ -66,7 +67,9 @@ function addToHistory(entry) {
 }
 
 function renderHistory() {
-  const history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
+  const history = JSON.parse(
+    localStorage.getItem("prodyscan_img_history") || "[]"
+  );
   historyList.innerHTML = "";
 
   if (!history.length) {
@@ -97,23 +100,23 @@ function renderHistory() {
       resultDescription.textContent = item.description;
       resultShop.textContent = "Boutique : " + item.shop_label;
       resultCountry.textContent = "Pays : " + item.country_label;
-      resultSource.textContent = "Source : " + (item.source || "");
+      resultSource.textContent = "Source : " + item.source;
       resultLink.href = item.url || "#";
     });
     historyList.appendChild(div);
   });
 }
 
-// =====================
-// HANDLERS UI
-// =====================
+// ============================
+// Handlers
+// ============================
 
 // Bouton "Choisir / Prendre une photo"
 chooseBtn.addEventListener("click", () => {
   fileInput.click();
 });
 
-// Quand un fichier est choisi, on met à jour l’aperçu
+// Mise à jour du nom + preview quand on choisit une image
 fileInput.addEventListener("change", () => {
   updatePreview();
 });
@@ -124,10 +127,7 @@ clearHistoryBtn.addEventListener("click", () => {
   renderHistory();
 });
 
-// =====================
-// ANALYSE IMAGE
-// =====================
-
+// Analyse
 async function handleAnalyse() {
   showError("");
   resultCard.hidden = true;
@@ -159,7 +159,7 @@ async function handleAnalyse() {
     let data;
     try {
       data = await response.json();
-    } catch {
+    } catch (e) {
       throw new Error("Réponse inattendue du serveur.");
     }
 
@@ -167,17 +167,18 @@ async function handleAnalyse() {
       throw new Error(data.error || "Erreur lors de l’analyse.");
     }
 
-    // -------- Affichage du résultat --------
+    // Affiche résultat
     resultCard.hidden = false;
     resultDescription.textContent = data.description || "(aucune description)";
-    resultShop.textContent = "Boutique : " + (data.shop_label || data.shop || "-");
+    resultShop.textContent = "Boutique : " + (data.shop_label || "-");
     resultCountry.textContent = "Pays : " + (data.country || "global");
     resultSource.textContent =
-      "Source : " + (data.source || (data.openai_enabled ? "vision" : "ocr"));
+      "Source : " +
+      (data.source || (data.openai_enabled ? "vision" : "ocr"));
 
     resultLink.href = data.url || "#";
 
-    // -------- Historique --------
+    // Historique
     const now = new Date();
     const dateStr =
       now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0, 5);
@@ -198,14 +199,12 @@ async function handleAnalyse() {
   }
 }
 
-// Clic sur "Analyser l’image"
 analyseBtn.addEventListener("click", handleAnalyse);
 
-// =====================
-// INIT AU CHARGEMENT
-// =====================
+// ============================
+// Init
+// ============================
 
 renderHistory();
 updatePreview();
 showError("");
-setLoading(false);
