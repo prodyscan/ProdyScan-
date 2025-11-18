@@ -113,9 +113,32 @@ clearHistoryBtn.addEventListener("click", () => {
   renderHistory();
 });
 
-async function handleAnalyse() {
-  showError("");
-  resultCard.hidden = true;
+setLoading(true);
+
+try {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("country", country);
+  formData.append("shop", shop);
+  formData.append("custom_shop", customShop);
+
+  const response = await fetch("/analyse", {
+    method: "POST",
+    body: formData,
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Réponse inattendue du serveur.");
+  }
+
+  if (!response.ok || data.error) {
+    throw new Error(data.error || "Erreur lors de l’analyse.");
+  }
+
+  // ... (le reste inchangé)
 
   const file = fileInput.files[0];
   if (!file) {
