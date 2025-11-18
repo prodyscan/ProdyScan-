@@ -307,17 +307,6 @@ else:
     final_query = "photo de produit en ligne"
     ai_used = False
     # 7) Choix de la requête finale
-    if ai_text and ocr_text:
-        final_query = f"{ai_text} {ocr_text}"
-        source = "ai+ocr"
-    elif ai_text:
-        final_query = ai_text
-        source = "ai-only"
-    elif ocr_text:
-        final_query = ocr_text
-        source = "ocr-only"
-    else:
-        return jsonify({"ok": False, "error": "Impossible de reconnaître le produit."}), 400
 
     # 8) Construire l'URL de recherche
     final_url = build_shop_url(shop, country, final_query)
