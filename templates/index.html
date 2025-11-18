@@ -15,51 +15,37 @@
       <div class="logo-circle">P</div>
       <div>
         <h1>ProdyScan</h1>
-        <p>Prends une photo d’un produit et trouve des offres similaires en ligne.</p>
-        {% if not has_openai %}
-        <p class="info-badge">
-          ⚠️ OpenAI Vision désactivé (clé absente) : seule la lecture de texte (OCR) sera utilisée.
-        </p>
-        {% endif %}
+        <!-- Texte d’accueil masqué -->
       </div>
     </header>
 
     <main class="app-main">
       <!-- Bloc image -->
       <section class="card">
-        <h2>1. Choisir ou prendre une photo</h2>
-        <p class="hint">
-          Utilise de préférence une photo bien cadrée du produit ou de son emballage.
-        </p>
+  <h2>1. Choisir ou prendre une photo</h2>
+  <p class="hint">
+    Utilise de préférence une photo bien cadrée du produit ou de son emballage.
+  </p>
 
-        <input
-          id="file-input"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          hidden
-        />
+  <!-- Input caché -->
+  <input
+    id="file-input"
+    type="file"
+    accept="image/*"
+    capture="environment"
+    hidden
+  />
 
-        <div class="image-actions">
-          <button id="choose-btn">Choisir / Prendre une photo</button>
-          <span id="file-name" class="file-name">Aucune image sélectionnée</span>
-        </div>
+  <!-- Bouton visible -->
+  <button id="choose-image-btn" type="button" class="primary-btn">
+    Choisir / Prendre une photo
+  </button>
 
-        <div id="preview-wrapper" class="preview-wrapper" hidden>
-          <img id="preview-img" alt="Aperçu de l'image" />
-        </div>
-
-        <p id="error-text" class="error-text" hidden></p>
-
-        <div id="loader" class="loader" hidden>
-          Analyse de l’image en cours…
-        </div>
-      </section>
-
-      <!-- Bloc boutique + pays -->
-      <section class="card">
-        <h2>2. Où veux-tu chercher ?</h2>
-
+  <!-- Nom de fichier -->
+  <p id="file-label" class="file-label">
+    Aucune image sélectionnée
+  </p>
+</section>
         <div class="form-grid">
           <div class="form-group">
             <label for="country-select">Pays cible</label>
