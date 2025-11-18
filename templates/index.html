@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>ProdyScan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="logo-circle">P</div>
+      <div>
+        <h1>ProdyScan</h1>
+        <p>Vérifie rapidement l’intégrité de tes produits.</p>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="card">
+        <h2>Scanner / vérifier un produit</h2>
+        <p class="hint">
+          Entre un code barre, QR, numéro de lot, ou identifiant produit.
+        </p>
+
+        <div class="input-row">
+          <input
+            id="code-input"
+            type="text"
+            placeholder="Ex : 123456789ABC"
+            autocomplete="off"
+          />
+          <button id="scan-btn">Analyser</button>
+        </div>
+
+        <p id="error-text" class="error-text" hidden></p>
+
+        <div id="loader" class="loader" hidden>
+          Analyse en cours…
+        </div>
+
+        <div id="result-card" class="result-card" hidden>
+          <div class="result-header">
+            <span id="status-pill" class="status-pill status-ok">Authentique</span>
+            <span class="result-code" id="result-code"></span>
+          </div>
+          <h3 id="result-name">Nom du produit</h3>
+          <p id="result-details" class="result-details"></p>
+
+          <div class="result-meta">
+            <div>
+              <span class="meta-label">Niveau de risque</span>
+              <span id="risk-level" class="meta-value">-</span>
+            </div>
+            <div>
+              <span class="meta-label">Dernière analyse</span>
+              <span class="meta-value" id="last-check">À l’instant</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card history-card">
+        <div class="history-header">
+          <h2>Historique récent</h2>
+          <button id="clear-history" class="link-button">Effacer</button>
+        </div>
+        <div id="history-list" class="history-list empty">
+          <p class="history-empty">Aucune analyse encore. Lance ta première vérification 👇</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <small>ProdyScan • backend : <span class="badge badge-ok">ON</span></small>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
