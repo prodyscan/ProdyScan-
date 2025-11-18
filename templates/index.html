@@ -27,7 +27,15 @@
     Utilise de préférence une photo bien cadrée du produit ou de son emballage.
   </p>
 
-  <!-- Input caché -->
+  <!-- BOUTON QUI OUVRE L’APPAREIL PHOTO / GALERIE -->
+  <button id="pick-image-btn" type="button" class="primary-btn">
+    Choisir / Prendre une photo
+  </button>
+
+  <!-- NOM DU FICHIER SÉLECTIONNÉ -->
+  <p id="file-name" class="file-name">Aucune image sélectionnée</p>
+
+  <!-- INPUT FICHIER CACHÉ (TRÈS IMPORTANT) -->
   <input
     id="file-input"
     type="file"
@@ -35,16 +43,6 @@
     capture="environment"
     hidden
   />
-
-  <!-- Bouton visible -->
-  <button id="choose-image-btn" type="button" class="primary-btn">
-    Choisir / Prendre une photo
-  </button>
-
-  <!-- Nom de fichier -->
-  <p id="file-label" class="file-label">
-    Aucune image sélectionnée
-  </p>
 </section>
         <div class="form-grid">
           <div class="form-group">
