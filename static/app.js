@@ -99,18 +99,15 @@ function renderHistory() {
 
 // ------------------ HANDLERS ------------------ //
 
-chooseBtn.addEventListener("click", () => {
+// Quand on clique sur le bouton => on ouvre l’input fichier
+pickImageBtn.addEventListener("click", () => {
   fileInput.click();
 });
 
+// Quand un fichier est choisi => on affiche le nom
 fileInput.addEventListener("change", () => {
-  updatePreview();
-  showError("");
-});
-
-clearHistoryBtn.addEventListener("click", () => {
-  localStorage.removeItem("prodyscan_img_history");
-  renderHistory();
+  const file = fileInput.files[0];
+  fileNameEl.textContent = file ? file.name : "Aucune image sélectionnée";
 });
 
 setLoading(true);
