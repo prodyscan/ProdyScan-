@@ -24,9 +24,56 @@ app = Flask(__name__)
 # ============================
 #   OPENAI VISION (optionnel)
 # ============================
+def ai_describe_image(image_bytes: bytes) -> str | None:
+    """
+    Utilise GPT-4o-mini Vision pour décrire le produit.
+    Retourne une phrase courte utilisable comme requête de recherche.
+    """
+    if client is None:
+        return None
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+    try:
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Décris précisément le produit visible sur cette image. "
+                                "Donne une phrase courte, optimisée pour une recherche en ligne. "
+                                "Ne donne que la description du produit."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{b64}"
+                            },
+                        },
+                    ],
+                }
+            ],
+            max_tokens=80,
+        )
+
+        # Récupération propre du texte retourné
+        blocks = resp.choices[0].message.content
+        if isinstance(blocks, list):
+            parts = [b.text for b in blocks if hasattr(b, "text")]
+            text = " ".join(parts).strip()
+        else:
+            text = str(blocks).strip()
+
+        return text or None
+
+    except Exception as e:
+        print("Erreur IA :", e)
+        return None
 
 # ============================
 #   BOUTIQUES & PAYS
