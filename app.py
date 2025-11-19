@@ -351,32 +351,32 @@ def analyse():
         return jsonify({"ok": False, "error": "Impossible de lire l'image."}), 400
 
     # 5) IA + OCR
-query_ia = ai_describe_image(processed_bytes)
-query_ocr = ocr_extract_text(pil_img)
+    query_ia = ai_describe_image(processed_bytes)
+    query_ocr = ocr_extract_text(pil_img)
 
-# Logs debug
-print("DEBUG query_ia:", repr(query_ia))
-print("DEBUG query_ocr:", repr(query_ocr))
+    # Logs debug
+    print("DEBUG query_ia:", repr(query_ia))
+    print("DEBUG query_ocr:", repr(query_ocr))
 
-# Sélection de la meilleure requête
-if query_ia and query_ocr:
-    final_query = f"{query_ia} {query_ocr}"
-    source = "vision+ocr"
-elif query_ia:
-    final_query = query_ia
-    source = "vision-only"
-elif query_ocr:
-    final_query = query_ocr
-    source = "ocr-only"
-else:
-    # Fallback si rien détecté
-    final_query = "photo de produit en ligne"
-    source = "default"
+    # 6) Sélection de la meilleure requête
+    if query_ia and query_ocr:
+        final_query = f"{query_ia} {query_ocr}"
+        source = "vision+ocr"
+    elif query_ia:
+        final_query = query_ia
+        source = "vision-only"
+    elif query_ocr:
+        final_query = query_ocr
+        source = "ocr-only"
+    else:
+        # Fallback si rien détecté
+        final_query = "photo de produit en ligne"
+        source = "default"
 
-    # 8) Construire l'URL de recherche
+    # 7) Construire l'URL de recherche
     final_url = build_shop_url(shop_for_url, country, final_query)
 
-    # 9) Préparer la réponse
+    # 8) Préparer la réponse
     response_data = {
         "ok": True,
         "description": final_query,
@@ -389,7 +389,7 @@ else:
         "openai_enabled": client is not None,
     }
 
-    # 10) Sauvegarder dans le cache
+    # 9) Sauvegarder dans le cache
     cache[key] = {
         "description": response_data["description"],
         "shop": response_data["shop"],
