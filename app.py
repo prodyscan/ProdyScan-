@@ -235,6 +235,7 @@ def home():
 
 
 @app.route("/analyse", methods=["POST"])
+@app.route("/analyse", methods=["POST"])
 def analyse():
     """
     Endpoint principal :
@@ -249,7 +250,7 @@ def analyse():
           shop: "...",
           country: "...",
           url: "...",
-          source: "ai+ocr" / "ocr-only" / "cache",
+          source: "ai+ocr" / "ocr-only" / "ai-only" / "fallback" / "cache",
           from_cache: bool
         }
     """
@@ -289,24 +290,27 @@ def analyse():
     except Exception:
         return jsonify({"ok": False, "error": "Impossible de lire l'image."}), 400
 
-    # 5) IA Vision
+    # 5) IA Vision (si clé OpenAI dispo)
     ai_text = ai_describe_image(processed_bytes)
 
     # 6) OCR (gratuit) en secours ou pour compléter
     ocr_text = ocr_extract_text(pil_img)
 
-    # Choix du texte final
-    if ai_text:
+    # 7) Choix du texte final + source
+    if ai_text and ocr_text:
+        # On combine les deux : description IA + texte détecté
+        final_query = f"{ai_text} {ocr_text}"
+        source = "ai+ocr"
+    elif ai_text:
         final_query = ai_text
-        ai_used = True
+        source = "ai-only"
     elif ocr_text:
         final_query = ocr_text
-        ai_used = False
+        source = "ocr-only"
     else:
-        # ⚠️ FALLBACK : description générique
+        # ⚠️ FALLBACK : description générique si rien n’a marché
         final_query = "photo de produit en ligne"
-        ai_used = False
-    # 7) Choix de la requête finale
+        source = "fallback"
 
     # 8) Construire l'URL de recherche
     final_url = build_shop_url(shop, country, final_query)
@@ -333,7 +337,6 @@ def analyse():
     save_cache()
 
     return jsonify(response_data), 200
-
 # ============================
 #   LANCEMENT LOCAL
 # ============================
