@@ -355,19 +355,22 @@ def analyse():
     # 6) OCR
     ocr_text = ocr_extract_text(pil_img)
 
-    # 7) Choix de la requête finale + source
-    if ai_text and ocr_text:
-        final_query = f"{ai_text} {ocr_text}"
-        source = "ai+ocr"
-    elif ai_text:
+    # 7) Choix du texte final + source
+    print("DEBUG ai_text (analyse):", repr(ai_text))
+    print("DEBUG ocr_text (analyse):", repr(ocr_text))
+
+    if ai_text:
         final_query = ai_text
         source = "ai-only"
     elif ocr_text:
         final_query = ocr_text
         source = "ocr-only"
     else:
-        final_query = "photo de produit en ligne"
-        source = "fallback"
+        # Ici on NE FAIT PLUS de fallback générique silencieux
+        return jsonify({
+            "ok": False,
+            "error": "Impossible de décrire le produit (IA et OCR vides).",
+        }), 500
 
     # 8) Construire l'URL de recherche
     final_url = build_shop_url(shop_for_url, country, final_query)
