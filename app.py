@@ -9,8 +9,6 @@ from PIL import Image, ImageOps, ImageEnhance
 import pytesseract
 from urllib.parse import quote_plus
 
-from openai import OpenAI
-
 # ============================
 #   CONFIG GLOBALE
 # ============================
@@ -24,6 +22,13 @@ app = Flask(__name__)
 # ============================
 #   OPENAI VISION (optionnel)
 # ============================
+
+from openai import OpenAI
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+
 def ai_describe_image(image_bytes: bytes) -> str | None:
     """
     Utilise GPT-4o-mini Vision pour décrire le produit.
@@ -51,9 +56,7 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
                         },
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{b64}"
-                            },
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
                         },
                     ],
                 }
@@ -61,7 +64,6 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
             max_tokens=80,
         )
 
-        # Récupération propre du texte retourné
         blocks = resp.choices[0].message.content
         if isinstance(blocks, list):
             parts = [b.text for b in blocks if hasattr(b, "text")]
@@ -74,6 +76,7 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
     except Exception as e:
         print("Erreur IA :", e)
         return None
+
 
 # ============================
 #   BOUTIQUES & PAYS
@@ -106,23 +109,18 @@ SHOP_TEMPLATES = {
     },
 }
 
-# Fallback : simple recherche Google
 DEFAULT_SHOP_URL = "https://www.google.com/search?q={q}"
 
 
 def build_shop_url(shop: str, country: str, query: str) -> str:
     """
-    Construit l'URL finale de recherche en fonction :
-    - de la boutique (shop)
-    - du pays (country)
-    - de la requête texte (query)
+    Construit l'URL de recherche finale.
     """
-
     shop = (shop or "").lower().strip()
     country = (country or "").lower().strip()
     q = quote_plus(query)
 
-    # Harmoniser les codes pays venant du front
+    # Harmoniser les codes pays
     country_aliases = {
         "civ": "ci",
         "côte d’ivoire": "ci",
@@ -137,21 +135,16 @@ def build_shop_url(shop: str, country: str, query: str) -> str:
     }
     country_key = country_aliases.get(country, country)
 
-    # Cas spécial : Google (on ne limite pas avec site:)
-    if shop == "google":
-        return DEFAULT_SHOP_URL.format(q=q)
-
-    # Boutique connue dans notre mapping
     conf = SHOP_TEMPLATES.get(shop)
     if isinstance(conf, dict):
         template = conf.get(country_key) or conf.get("default") or DEFAULT_SHOP_URL
         return template.format(q=q)
 
-    # Boutique inconnue mais fournie par l'utilisateur -> Google "site:..."
+    # Boutique perso -> Google site:
     if shop:
         return f"https://www.google.com/search?q=site:{quote_plus(shop)}+{q}"
 
-    # Aucune boutique -> recherche Google classique
+    # Fallback Google simple
     return DEFAULT_SHOP_URL.format(q=q)
 
 
@@ -176,7 +169,7 @@ def load_cache():
 
 def save_cache():
     try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        with open(CACHE_FILE, "w", encoding="utf-8) as f:
             json.dump(cache, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print("Erreur sauvegarde cache :", e)
