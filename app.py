@@ -350,26 +350,28 @@ def analyse():
     except Exception:
         return jsonify({"ok": False, "error": "Impossible de lire l'image."}), 400
 
-    # 5) IA Vision
-    ai_text = ai_describe_image(processed_bytes)
+    # 5) IA + OCR
+query_ia = ai_describe_image(processed_bytes)
+query_ocr = ocr_extract_text(pil_img)
 
-    # 6) OCR
-    ocr_text = ocr_extract_text(pil_img)
+# Logs debug
+print("DEBUG query_ia:", repr(query_ia))
+print("DEBUG query_ocr:", repr(query_ocr))
 
-    # 7) Choix du texte final + source
-    print("DEBUG ai_text (analyse):", repr(ai_text))
-    print("DEBUG ocr_text (analyse):", repr(ocr_text))
-
-    if ai_text:
-        final_query = ai_text
-        source = "ai-only"
-    elif ocr_text:
-        final_query = ocr_text
-        source = "ocr-only"
-    else:
-    # ⚠️ Fallback automatique si IA et OCR échouent
+# Sélection de la meilleure requête
+if query_ia and query_ocr:
+    final_query = f"{query_ia} {query_ocr}"
+    source = "vision+ocr"
+elif query_ia:
+    final_query = query_ia
+    source = "vision-only"
+elif query_ocr:
+    final_query = query_ocr
+    source = "ocr-only"
+else:
+    # Fallback si rien détecté
     final_query = "photo de produit en ligne"
-    source = "defaut"
+    source = "default"
 
     # 8) Construire l'URL de recherche
     final_url = build_shop_url(shop_for_url, country, final_query)
