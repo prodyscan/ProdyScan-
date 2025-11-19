@@ -27,7 +27,8 @@ from openai import OpenAI
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-
+print("DEBUG OPENAI_API_KEY present:", bool(OPENAI_API_KEY))
+print("DEBUG client initialisé:", client is not None)
 
 def ai_describe_image(image_bytes: bytes) -> str | None:
     """
