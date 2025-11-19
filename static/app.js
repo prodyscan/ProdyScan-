@@ -11,7 +11,27 @@ const previewImg = document.getElementById("preview-img");
 const countrySelect = document.getElementById("country-select");
 const shopSelect = document.getElementById("shop-select");
 const customShopInput = document.getElementById("custom-shop");
+// ============================
+// Gestion logique boutique / boutique perso
+// ============================
 
+// Si l'utilisateur change la boutique standard
+if (shopSelect && customShopInput) {
+  shopSelect.addEventListener("change", () => {
+    // Si la boutique choisie n'est PAS "personnalisée", on vide et désactive
+    if (shopSelect.value !== "custom") {
+      customShopInput.value = "";
+    }
+  });
+
+  // Si l'utilisateur commence à taper sa propre boutique...
+  customShopInput.addEventListener("input", () => {
+    // Alors on force la valeur du select à "custom"
+    if (customShopInput.value.trim().length > 0) {
+      shopSelect.value = "custom";
+    }
+  });
+}
 const analyseBtn = document.getElementById("analyse-btn");
 
 const errorText = document.getElementById("error-text");
