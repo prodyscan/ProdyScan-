@@ -216,7 +216,7 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
         b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini-vision",
             messages=[
                 {
                     "role": "user",
