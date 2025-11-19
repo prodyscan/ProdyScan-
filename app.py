@@ -19,6 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 
+app.config["PROPAGATE_EXCEPTIONS"] = True
 # ============================
 #   OPENAI VISION (optionnel)
 # ============================
@@ -409,4 +410,4 @@ def analyse():
 if __name__ == "__main__":
     # Render fournit toujours la variable d'environnement PORT (par défaut 10000)
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=True)
