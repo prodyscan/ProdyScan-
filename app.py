@@ -33,8 +33,8 @@ print("DEBUG client initialisé:", client is not None)
 
 def ai_describe_image(image_bytes: bytes) -> str | None:
     """
-    Utilise GPT-4o-mini Vision pour décrire le produit.
-    Retourne une phrase courte utilisable comme requête de recherche.
+    Utilise gpt-4o-mini pour décrire le produit à partir de l'image.
+    Retourne une phrase courte utilisable comme requête.
     """
     if client is None:
         print("DEBUG ai_describe_image: client is None")
@@ -44,7 +44,7 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
         b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini",   # ⬅️ IMPORTANT : pas -vision
             messages=[
                 {
                     "role": "user",
@@ -69,21 +69,21 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
             max_tokens=80,
         )
 
-        # Le SDK renvoie une liste de blocs de contenu
-        blocks = resp.choices[0].message.content
-        text = ""
+        content = resp.choices[0].message.content
 
-        if isinstance(blocks, list):
+        # Le SDK peut renvoyer une chaîne ou une liste de blocs
+        if isinstance(content, str):
+            text = content.strip()
+        elif isinstance(content, list):
             parts = []
-            for b in blocks:
-                # Les blocs texte ont un attribut .text
+            for b in content:
                 if hasattr(b, "text") and b.text:
                     parts.append(b.text)
             text = " ".join(parts).strip()
         else:
-            text = str(blocks).strip()
+            text = str(content).strip()
 
-        print("DEBUG ai_text:", repr(text))
+        print("DEBUG query_ia (OpenAI) :", repr(text))
         return text or None
 
     except Exception as e:
