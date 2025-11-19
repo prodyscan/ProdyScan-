@@ -401,8 +401,6 @@ else:
     save_cache()
 
     return jsonify(response_data), 200
-
-
 # ============================
 #   LANCEMENT LOCAL / RENDER
 # ============================
