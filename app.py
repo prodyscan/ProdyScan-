@@ -1,5 +1,3 @@
-urllib.parse import quote_plus
-
 # ============================
 #   CONFIG GLOBALE
 # ============================
