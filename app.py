@@ -36,6 +36,7 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
     Retourne une phrase courte utilisable comme requête de recherche.
     """
     if client is None:
+        print("DEBUG ai_describe_image: client is None")
         return None
 
     try:
@@ -51,13 +52,15 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
                             "type": "text",
                             "text": (
                                 "Décris précisément le produit visible sur cette image. "
-                                "Donne une phrase courte, optimisée pour une recherche en ligne. "
-                                "Ne donne que la description du produit."
+                                "Donne UNE seule phrase courte, optimisée pour une recherche "
+                                "en boutique en ligne. Réponds uniquement par la description du produit."
                             ),
                         },
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{b64}"
+                            },
                         },
                     ],
                 }
@@ -65,17 +68,25 @@ def ai_describe_image(image_bytes: bytes) -> str | None:
             max_tokens=80,
         )
 
+        # Le SDK renvoie une liste de blocs de contenu
         blocks = resp.choices[0].message.content
+        text = ""
+
         if isinstance(blocks, list):
-            parts = [b.text for b in blocks if hasattr(b, "text")]
+            parts = []
+            for b in blocks:
+                # Les blocs texte ont un attribut .text
+                if hasattr(b, "text") and b.text:
+                    parts.append(b.text)
             text = " ".join(parts).strip()
         else:
             text = str(blocks).strip()
 
+        print("DEBUG ai_text:", repr(text))
         return text or None
 
     except Exception as e:
-        print("Erreur IA :", e)
+        print("Erreur IA :", repr(e))
         return None
 
 
