@@ -46,12 +46,13 @@ ProdyScan is a Flask-based web application that helps users find products online
 
 ### Replit Environment Setup
 1. Installed Python 3.11 and Tesseract OCR system dependency
-2. Installed all required Python packages (flask, pillow, pytesseract, openai, urllib3)
+2. Installed all required Python packages (flask, pillow, pytesseract, openai, urllib3, gunicorn)
 3. Fixed duplicate `ai_describe_image` function definition
 4. Updated default port from 10000 to 5000 for Replit compatibility
 5. Configured Flask workflow to run on port 5000 with webview output
 6. Created Python-specific .gitignore file
-7. Configured autoscale deployment for production
+7. Configured autoscale deployment using Gunicorn for production
+8. Added Gunicorn as production WSGI server (development uses Flask's debug server)
 
 ## Configuration
 
@@ -93,6 +94,7 @@ The Flask server runs on `0.0.0.0:5000` and is accessible through the Replit web
 - pytesseract - Python wrapper for Tesseract OCR
 - openai - OpenAI API client (optional)
 - urllib3 - HTTP library
+- gunicorn - Production WSGI server
 
 ## User Preferences
 None specified yet.
