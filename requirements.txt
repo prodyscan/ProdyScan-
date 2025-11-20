@@ -3,3 +3,6 @@ pillow
 pytesseract
 openai
 urllib3
+flask
+pillow
+pytesseract
