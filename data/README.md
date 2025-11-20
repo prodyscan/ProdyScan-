@@ -1,1 +1,3 @@
-
+id,title,image_url,price,category,brand
+1,Chaussures de sport,"https://.../shoe1.jpg",25000,chaussures,Nike
+2,T-shirt homme noir,"https://.../tshirt.jpg",8000,vetements,Adidas
