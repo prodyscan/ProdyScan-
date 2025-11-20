@@ -215,56 +215,6 @@ def preprocess_image(image_bytes: bytes, max_size: int = 800):
     return img, buf.getvalue()
 
 
-# ============================
-#   IA VISION – DESCRIPTION
-# ============================
-
-def ai_describe_image(image_bytes: bytes) -> str | None:
-    """Décrit le produit sur l'image avec OpenAI Vision (si dispo)."""
-    if client is None:
-        return None
-
-    try:
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini-vision",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Regarde cette image et décris précisément le produit : "
-                                "type, style, couleur, genre (homme/femme/enfant), "
-                                "usage (sport, casual, bureau, etc.). "
-                                "Donne une phrase courte qui pourrait servir "
-                                "de requête pour trouver ce produit en boutique en ligne."
-                            ),
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
-                        },
-                    ],
-                }
-            ],
-            max_tokens=120,
-        )
-
-        content_blocks = resp.choices[0].message.content
-        if isinstance(content_blocks, list):
-            text_parts = [b.text for b in content_blocks if hasattr(b, "text")]
-            description = " ".join(text_parts).strip()
-        else:
-            description = str(content_blocks).strip()
-
-        return description or None
-
-    except Exception as e:
-        print("Erreur IA :", e)
-        return None
 
 
 # ============================
@@ -406,6 +356,6 @@ def analyse():
 # ============================
 
 if __name__ == "__main__":
-    # Render fournit toujours la variable d'environnement PORT (par défaut 10000)
-    port = int(os.environ.get("PORT", 10000))
+    # Replit requires port 5000 for frontend
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
