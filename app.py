@@ -499,21 +499,35 @@ def analyse():
         # URL principale du 1er résultat (pour le gros bouton violet)
         main_url = results[0].get("url") or "#"
 
-        # Préparer le payload pour debug + réponse
-        debug_payload = {
-            "ok": True,
-            "description": "photo de produit en ligne",
-            "shop": "local",
-            "shop_label": shop_label,
-            "country": country,
-            "url": main_url,
-            "source": local_source,
-            "openai_enabled": openai_client is not None,
-            "local_results": results,
-        }
-        print("DEBUG /analyse local -> payload =", debug_payload)
+    # Préparer le payload pour debug + réponse
 
-        return jsonify(debug_payload), 200
+    # 👉 On prend l'URL du produit le plus similaire (1er résultat FAISS),
+    # si elle existe dans le catalogue
+    best_url = None
+    if results:
+        try:
+            best_url = results[0].get("url")
+        except Exception:
+            best_url = None
+
+    debug_payload = {
+        "ok": True,
+        "description": "photo de produit en ligne",
+        "mode": "local",              # on indique qu'on est en mode catalogue local
+        "shop": shop,                 # "local" OU "jumia"
+        "shop_label": shop_label,
+        "country": country,
+        # 👉 si boutique = Jumia → lien vers le meilleur produit,
+        # sinon on garde ton main_url (ou None)
+        "url": best_url if shop == "jumia" else main_url,
+        "source": local_source,
+        "openai_enabled": openai_client is not None,
+        "results": results,           # on renvoie les résultats locaux ici
+    }
+    print("DEBUG /analyse local -> payload =", debug_payload)
+
+    return jsonify(debug_payload), 200
+        
     # 5) IA + OCR (pour boutiques externes)
     query_ia = ai_describe_image(processed_bytes)
     query_ocr = ocr_extract_text(pil_img)

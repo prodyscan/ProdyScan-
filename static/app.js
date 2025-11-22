@@ -267,15 +267,26 @@ async function handleAnalyse() {
     if (resultCountry) resultCountry.textContent = "Pays : " + countryLabel;
     if (resultSource) resultSource.textContent = "Source : " + sourceLabel;
 
-    // ---------- Cas 1 : Mode "Catalogue local (par image)" ---------// ---------- Cas 1 : Mode "Catalogue local (par image)" ----------
+    // ---------- Cas 1 : Mode "Catalogue local (par image)" ----------
 if (isLocalMode) {
-  // On affiche les produits du catalogue local
-  renderLocalResults(data.local_results || data.results || []);
 
-  // Pas de lien externe en mode local (on le cache)
-  if (resultLink) {
-    resultLink.style.display = "none";
-    resultLink.href = "#";
+    // On affiche les produits du catalogue local
+    renderLocalResults(data.local_results || data.results || []);
+
+    // Afficher le lien Jumia si disponible
+    if (resultLink) {
+        const firstProduct = (data.local_results || data.results || [])[0];
+
+        if (firstProduct && firstProduct.url) {
+            // Lien Jumia (ou autre source)
+            resultLink.style.display = "inline-flex";
+            resultLink.href = firstProduct.url;
+            resultLink.target = "_blank";
+        } else {
+            // Pas de lien → on cache
+            resultLink.style.display = "none";
+            resultLink.href = "#";
+        }
   }
 } else {
       // ---------- Cas 2 : Jumia / Google / Amazon / etc. ----------
