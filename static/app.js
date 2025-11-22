@@ -43,6 +43,41 @@ const resultShop = document.getElementById("result-shop");
 const resultCountry = document.getElementById("result-country");
 const resultSource = document.getElementById("result-source");
 const resultLink = document.getElementById("result-link");
+const localResults = document.getElementById("local-results");
+
+// ======================
+//  Résultats catalogue local
+// ======================
+
+function clearLocalResults() {
+  if (!localResults) return;
+  localResults.innerHTML = "";
+}
+
+function renderLocalResults(results) {
+  if (!localResults) return;
+
+  clearLocalResults();
+
+  if (!results || results.length === 0) {
+    localResults.innerHTML = "<p>Aucun produit similaire trouvé.</p>";
+    return;
+  }
+
+  results.forEach((p) => {
+    const div = document.createElement("div");
+    div.className = "local-product";
+
+    div.innerHTML = `
+      <img src="${p.image_url}" alt="${p.title}">
+      <h4>${p.title}</h4>
+      <p><strong>Prix :</strong> ${p.price} FCFA</p>
+      <p><strong>Marque :</strong> ${p.brand}</p>
+    `;
+
+    localResults.appendChild(div);
+  });
+}
 
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history");
@@ -55,7 +90,9 @@ function setLoading(isLoading) {
   if (!loader || !analyseBtn) return;
   loader.hidden = !isLoading;
   analyseBtn.disabled = isLoading;
-  analyseBtn.textContent = isLoading ? "Analyse en cours..." : "Analyser l’image";
+  analyseBtn.textContent = isLoading
+    ? "Analyse en cours..."
+    : "Analyser l’image";
 }
 
 function showError(msg) {
@@ -82,7 +119,9 @@ function updatePreview() {
 }
 
 function addToHistory(entry) {
-  let history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
+  let history = JSON.parse(
+    localStorage.getItem("prodyscan_img_history") || "[]",
+  );
   history.unshift(entry);
   history = history.slice(0, 10);
   localStorage.setItem("prodyscan_img_history", JSON.stringify(history));
@@ -92,7 +131,9 @@ function addToHistory(entry) {
 function renderHistory() {
   if (!historyList) return;
 
-  const history = JSON.parse(localStorage.getItem("prodyscan_img_history") || "[]");
+  const history = JSON.parse(
+    localStorage.getItem("prodyscan_img_history") || "[]",
+  );
   historyList.innerHTML = "";
 
   if (!history.length) {
@@ -163,6 +204,7 @@ if (clearHistoryBtn) {
 async function handleAnalyse() {
   showError("");
   if (resultCard) resultCard.hidden = true;
+  clearLocalResults();
 
   if (!fileInput) {
     showError("Erreur interne : champ fichier introuvable.");
@@ -205,10 +247,16 @@ async function handleAnalyse() {
       throw new Error(data.error || "Erreur lors de l’analyse.");
     }
 
-    // -------- Affichage du résultat --------
+    // ---------- On regarde si on est en mode "Catalogue local" ----------
+    const isLocalMode = shop === "local" || data.mode === "local";
+
+    // ---------- Afficher la carte résultat ----------
     if (resultCard) resultCard.hidden = false;
 
-    const description = data.description || "(aucune description)";
+    const description =
+      (data.description && data.description.trim()) ||
+      (isLocalMode ? "photo de produit en ligne" : "(aucune description)");
+
     const shopLabel = data.shop_label || data.shop || "-";
     const countryLabel = data.country || "global";
     const sourceLabel =
@@ -219,11 +267,30 @@ async function handleAnalyse() {
     if (resultCountry) resultCountry.textContent = "Pays : " + countryLabel;
     if (resultSource) resultSource.textContent = "Source : " + sourceLabel;
 
-    if (resultLink) {
-      resultLink.href = data.url || "#";
+    // ---------- Cas 1 : Mode "Catalogue local (par image)" ---------// ---------- Cas 1 : Mode "Catalogue local (par image)" ----------
+if (isLocalMode) {
+  // On affiche les produits du catalogue local
+  renderLocalResults(data.local_results || data.results || []);
+
+  // Pas de lien externe en mode local (on le cache)
+  if (resultLink) {
+    resultLink.style.display = "none";
+    resultLink.href = "#";
+  }
+} else {
+      // ---------- Cas 2 : Jumia / Google / Amazon / etc. ----------
+      // On vide la zone de résultats locaux
+      clearLocalResults();
+
+      // On affiche le lien vers la boutique
+      if (resultLink) {
+        resultLink.style.display = "inline-flex";
+        resultLink.href = data.url || "#";
+        resultLink.target = "_blank";
+      }
     }
 
-    // -------- Historique --------
+    // ---------- Historique ----------
     const now = new Date();
     const dateStr =
       now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0, 5);
@@ -232,7 +299,7 @@ async function handleAnalyse() {
       description,
       shop_label: shopLabel,
       country_label: countryLabel,
-      url: data.url || "#",
+      url: isLocalMode ? "#" : (data.url || "#"),
       source: sourceLabel,
       date: dateStr,
     });
@@ -243,7 +310,6 @@ async function handleAnalyse() {
     setLoading(false);
   }
 }
-
 // Lier le bouton "Analyser l’image"
 if (analyseBtn) {
   analyseBtn.addEventListener("click", handleAnalyse);

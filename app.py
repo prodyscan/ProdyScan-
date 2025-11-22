@@ -1,361 +1,555 @@
 import os
-import base64
 import json
-import hashlib
+import base64
 from io import BytesIO
+from typing import List, Dict, Tuple, Optional
 
 from flask import Flask, request, jsonify, render_template
 from PIL import Image, ImageOps, ImageEnhance
-import pytesseract
 from urllib.parse import quote_plus
 
-# ============================
-#   CONFIG GLOBALE
-# ============================
+import pytesseract
+import numpy as np
+import faiss
+import torch
+import open_clip
+from engines.free_embedder import FreeEmbedder
 
-UPLOAD_FOLDER = "./uploads"
-CACHE_FILE = "cache.json"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+embedder = FreeEmbedder()
+# ============================================================
+#  FLASK APP
+# ============================================================
 
 app = Flask(__name__)
 
-app.config["PROPAGATE_EXCEPTIONS"] = True
-# ============================
-#   OPENAI VISION (optionnel)
-# ============================
+# ============================================================
+#  CONFIG GLOBALE
+# ============================================================
 
-from openai import OpenAI
+# Dossiers & fichiers
+DATA_DIR = "./data"
+ARTIFACT_DIR = "./artifacts/free"
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-print("DEBUG OPENAI_API_KEY present:", bool(OPENAI_API_KEY))
-print("DEBUG client initialisé:", client is not None)
+CATALOG_FILE = os.path.join(DATA_DIR, "catalog.json")
+EMB_FILE = os.path.join(ARTIFACT_DIR, "embeddings.npy")
+FAISS_FILE = os.path.join(ARTIFACT_DIR, "index.faiss")
+IDS_FILE = os.path.join(ARTIFACT_DIR, "ids.json")
 
-def ai_describe_image(image_bytes: bytes) -> str | None:
+# ============================================================
+#  OPENAI (optionnel) - Vision pour décrire l'image
+# ============================================================
+
+try:
+    from openai import OpenAI  # nouveau client
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
+except Exception:
+    openai_client = None
+
+
+def ai_describe_image(image_bytes: bytes) -> Optional[str]:
     """
-    Utilise gpt-4o-mini pour décrire le produit à partir de l'image.
-    Retourne une phrase courte utilisable comme requête.
+    Décrit l'image avec le modèle Vision (si disponible).
+    Retourne une phrase, ou None si indisponible / erreur.
     """
-    if client is None:
-        print("DEBUG ai_describe_image: client is None")
+    if openai_client is None:
         return None
 
     try:
         b64 = base64.b64encode(image_bytes).decode("utf-8")
+        prompt = (
+            "Décris en une seule phrase courte le type de produit visible "
+            "sur cette photo, pour une recherche e-commerce.")
 
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",   # ⬅️ IMPORTANT : pas -vision
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Décris précisément le produit visible sur cette image. "
-                                "Donne UNE seule phrase courte, optimisée pour une recherche "
-                                "en boutique en ligne. Réponds uniquement par la description du produit."
-                            ),
+        completion = openai_client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{
+                "role":
+                "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{b64}"
                         },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{b64}"
-                            },
-                        },
-                    ],
-                }
-            ],
-            max_tokens=80,
+                    },
+                ],
+            }],
+            max_tokens=60,
         )
 
-        content = resp.choices[0].message.content
-
-        # Le SDK peut renvoyer une chaîne ou une liste de blocs
-        if isinstance(content, str):
-            text = content.strip()
-        elif isinstance(content, list):
-            parts = []
-            for b in content:
-                if hasattr(b, "text") and b.text:
-                    parts.append(b.text)
-            text = " ".join(parts).strip()
-        else:
-            text = str(content).strip()
-
-        print("DEBUG query_ia (OpenAI) :", repr(text))
-        return text or None
-
-    except Exception as e:
-        print("Erreur IA :", repr(e))
+        text = completion.choices[0].message.content or ""
+        text = text.strip()
+        if not text:
+            return None
+        return text
+    except Exception:
         return None
 
 
-# ============================
-#   BOUTIQUES & PAYS
-# ============================
-
-SHOP_TEMPLATES = {
-    "jumia": {
-        "ci": "https://www.jumia.ci/catalog/?q={q}",
-        "sn": "https://www.jumia.sn/catalog/?q={q}",
-        "ma": "https://www.jumia.ma/catalog/?q={q}",
-        "default": "https://www.jumia.com/catalog/?q={q}",
-    },
-    "amazon": {
-        "fr": "https://www.amazon.fr/s?k={q}",
-        "us": "https://www.amazon.com/s?k={q}",
-        "default": "https://www.amazon.com/s?k={q}",
-    },
-    "aliexpress": {
-        "default": "https://www.aliexpress.com/wholesale?SearchText={q}",
-    },
-    "ebay": {
-        "default": "https://www.ebay.com/sch/i.html?_nkw={q}",
-    },
-    "cdiscount": {
-        "fr": "https://www.cdiscount.com/search/10/{q}.html",
-        "default": "https://www.cdiscount.com/search/10/{q}.html",
-    },
-    "alibaba": {
-        "default": "https://www.alibaba.com/trade/search?SearchText={q}",
-    },
-}
-
-DEFAULT_SHOP_URL = "https://www.google.com/search?q={q}"
+# ============================================================
+#  OCR (pytesseract)
+# ============================================================
 
 
-def build_shop_url(shop: str, country: str, query: str) -> str:
+def ocr_extract_text(img: Image.Image) -> Optional[str]:
+    """Essaye de récupérer du texte dans l'image (ex: étiquette, marque)."""
+    try:
+        text = pytesseract.image_to_string(img, lang="eng+fra")
+        text = text.strip()
+        if len(text) < 5:
+            return None
+        return text
+    except Exception:
+        return None
+
+
+# ============================================================
+#  PRÉTRAITEMENT IMAGE
+# ============================================================
+
+
+def preprocess_image(raw_bytes: bytes) -> Tuple[Image.Image, bytes]:
     """
-    Construit l'URL de recherche finale.
+    - Charge l'image avec PIL
+    - Convertit en RGB, redimensionne si besoin
+    - Retourne (PIL_image, bytes_jpeg_compact)
     """
-    shop = (shop or "").lower().strip()
-    country = (country or "").lower().strip()
+    img = Image.open(BytesIO(raw_bytes)).convert("RGB")
+
+    max_side = 1024
+    w, h = img.size
+    if max(w, h) > max_side:
+        img.thumbnail((max_side, max_side), Image.LANCZOS)
+
+    img = ImageOps.autocontrast(img)
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.05)
+
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    processed_bytes = buf.getvalue()
+
+    return img, processed_bytes
+
+
+# ============================================================
+#  OPENCLIP + FAISS (recherche locale par vecteur)
+# ============================================================
+
+clip_model = None
+clip_preprocess = None
+
+faiss_index: Optional[faiss.Index] = None
+faiss_ids: List[str] = []
+faiss_ready = False
+
+# catalogue en mémoire : id -> produit (dict)
+catalog_by_id: Dict[str, Dict] = {}
+
+
+def init_openclip():
+    """Charge le modèle CLIP (ViT-B-32 / openai) une seule fois."""
+    global clip_model, clip_preprocess
+    if clip_model is not None:
+        return
+
+    model, preprocess, _ = open_clip.create_model_and_transforms(
+        "ViT-B-32",
+        pretrained="openai",
+    )
+    model.eval()
+    clip_model = model
+    clip_preprocess = preprocess
+
+
+def embed_image_clip(img: Image.Image) -> np.ndarray:
+    """Transforme une image PIL en vecteur CLIP (1, d)."""
+    init_openclip()
+    assert clip_model is not None and clip_preprocess is not None
+
+    img_t = clip_preprocess(img).unsqueeze(0)  # (1, 3, H, W)
+    with torch.no_grad():
+        feats = clip_model.encode_image(img_t)
+        feats = feats / feats.norm(dim=-1, keepdim=True)
+
+    return feats.cpu().numpy().astype("float32")
+
+
+def load_catalog() -> bool:
+    """Charge le fichier catalog.json en mémoire (id -> produit)."""
+    global catalog_by_id
+
+    if catalog_by_id:
+        return True
+
+    if not os.path.exists(CATALOG_FILE):
+        print("WARN load_catalog: catalog.json introuvable")
+        return False
+
+    try:
+        with open(CATALOG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        catalog_by_id = {}
+        for idx, prod in enumerate(data):
+            # on essaie plusieurs champs possibles pour l'ID
+            pid = prod.get("id") or prod.get("sku") or (idx + 1)
+            pid = str(pid)
+            catalog_by_id[pid] = prod
+
+        print(f"DEBUG load_catalog: {len(catalog_by_id)} produits chargés")
+        return True
+    except Exception as e:
+        print("ERROR load_catalog:", e)
+        catalog_by_id = {}
+        return False
+
+
+def load_faiss_index() -> bool:
+    """Charge l'index FAISS et les ids depuis le disque (si dispo)."""
+    global faiss_index, faiss_ids, faiss_ready
+
+    if faiss_ready:
+        return True
+
+    if not (os.path.exists(FAISS_FILE) and os.path.exists(IDS_FILE)):
+        print("WARN load_faiss_index: fichiers FAISS ou ids manquants")
+        faiss_ready = False
+        return False
+
+    try:
+        faiss_index = faiss.read_index(FAISS_FILE)
+        with open(IDS_FILE, "r", encoding="utf-8") as f:
+            faiss_ids = json.load(f)
+        faiss_ready = True
+        print(f"DEBUG load_faiss_index: index chargé, {len(faiss_ids)} ids")
+        return True
+    except Exception as e:
+        print("ERROR load_faiss_index:", e)
+        faiss_ready = False
+        faiss_index = None
+        faiss_ids = []
+        return False
+
+
+def local_search_with_faiss(img: Image.Image,
+                            k: int = 5) -> Tuple[List[Dict], str]:
+    """
+    Recherche les produits similaires dans le catalogue local, via FAISS + CLIP.
+    Retourne toujours une liste de produits si l'index existe :
+      - résultats triés par similarité
+      - ou, en dernier recours, les premiers produits du catalogue.
+    """
+    global faiss_index, faiss_ids, embedder
+
+    # 0) S'assurer que l'index est chargé
+    if not load_faiss_index():
+        print("DEBUG local_search_with_faiss: index introuvable sur le disque")
+        return [], "local-missing"
+
+    # 1) Index indisponible / vide
+    if faiss_index is None or faiss_ids is None or not len(faiss_ids):
+        print("DEBUG local_search_with_faiss: index vide")
+        return [], "local-empty"
+
+    # 2) Embedding de l'image requête
+    try:
+        vec = embedder.embed_image(img)  # (1, d)
+        if isinstance(vec, np.ndarray):
+            arr = vec
+        else:
+            arr = np.array(vec)
+
+        if arr.ndim == 1:
+            arr = arr[None, :]
+
+        vec = arr.astype("float32")
+    except Exception as e:
+        print("ERROR local_search_with_faiss: échec embedding :", e)
+        # 🔁 En cas d'erreur d'embed, on renvoie quand même les premiers produits
+        fallback: List[Dict] = []
+        for idx, item in enumerate(faiss_ids[:k]):
+            item = item or {}
+            fallback.append({
+                "title":
+                item.get("title") or item.get("name") or f"Produit {idx+1}",
+                "brand":
+                item.get("brand") or item.get("marque") or "",
+                "price":
+                item.get("price"),
+                "image_url":
+                item.get("image_url") or item.get("image") or "",
+                "url":
+                item.get("url") or item.get("link") or "",
+                "score":
+                0.0,
+            })
+        return fallback, "local-fallback-embed"
+
+    # 3) Recherche FAISS
+    try:
+        D, I = faiss_index.search(vec, k)  # D: distances, I: indices
+        print("DEBUG FAISS distances:", D, "indices:", I)
+
+        results: List[Dict] = []
+
+        neighbors = zip(D[0], I[0])
+        for dist, idx in neighbors:
+            if idx < 0 or idx >= len(faiss_ids):
+                continue
+
+            item = faiss_ids[idx] or {}
+            result = {
+                "title": item.get("title") or item.get("name")
+                or f"Produit {idx+1}",
+                "brand": item.get("brand") or item.get("marque") or "",
+                "price": item.get("price"),  # peut être None
+                "image_url": item.get("image_url") or item.get("image") or "",
+                "url": item.get("url") or item.get("link") or "",
+                "score": float(dist),
+            }
+            results.append(result)
+
+        # 4) Si FAISS renvoie rien, on renvoie au moins quelques produits du catalogue
+        if not results:
+            print(
+                "DEBUG local_search_with_faiss: aucun voisin, fallback sur premiers produits"
+            )
+            fallback: List[Dict] = []
+            for idx, item in enumerate(faiss_ids[:k]):
+                item = item or {}
+                fallback.append({
+                    "title":
+                    item.get("title") or item.get("name")
+                    or f"Produit {idx+1}",
+                    "brand":
+                    item.get("brand") or item.get("marque") or "",
+                    "price":
+                    item.get("price"),
+                    "image_url":
+                    item.get("image_url") or item.get("image") or "",
+                    "url":
+                    item.get("url") or item.get("link") or "",
+                    "score":
+                    0.0,
+                })
+            return fallback, "local-faiss-fallback"
+
+        return results, "local-faiss"
+
+    except Exception as e:
+        print("ERROR local_search_with_faiss: erreur FAISS :", e)
+        # 🔁 En cas d'erreur FAISS, on renvoie aussi les premiers produits
+        fallback: List[Dict] = []
+        for idx, item in enumerate(faiss_ids[:k]):
+            item = item or {}
+            fallback.append({
+                "title":
+                item.get("title") or item.get("name") or f"Produit {idx+1}",
+                "brand":
+                item.get("brand") or item.get("marque") or "",
+                "price":
+                item.get("price"),
+                "image_url":
+                item.get("image_url") or item.get("image") or "",
+                "url":
+                item.get("url") or item.get("link") or "",
+                "score":
+                0.0,
+            })
+        return fallback, "local-error-faiss"
+
+
+# ============================================================
+#  CONSTRUCTION URL BOUTIQUE EXTERNE
+# ============================================================
+
+
+def build_shop_url(query: str, shop_for_url: str, country: str) -> str:
+    """Construit l'URL finale pour Amazon / Google / Jumia / custom."""
     q = quote_plus(query)
 
-    # Harmoniser les codes pays
-    country_aliases = {
-        "civ": "ci",
-        "côte d’ivoire": "ci",
-        "cote d’ivoire": "ci",
-        "cote d'ivoire": "ci",
-        "sen": "sn",
-        "sn": "sn",
-        "maroc": "ma",
-        "morocco": "ma",
-        "france": "fr",
-        "fr": "fr",
-    }
-    country_key = country_aliases.get(country, country)
+    shop = (shop_for_url or "").lower()
+    country = (country or "global").lower()
 
-    conf = SHOP_TEMPLATES.get(shop)
-    if isinstance(conf, dict):
-        template = conf.get(country_key) or conf.get("default") or DEFAULT_SHOP_URL
-        return template.format(q=q)
+    if shop == "amazon":
+        return f"https://www.amazon.com/s?k={q}"
 
-    # Boutique perso -> Google site:
-    if shop:
-        return f"https://www.google.com/search?q=site:{quote_plus(shop)}+{q}"
+    if shop == "jumia":
+        domain = "ci"
+        return f"https://www.jumia.{domain}/catalog/?q={q}"
 
-    # Fallback Google simple
-    return DEFAULT_SHOP_URL.format(q=q)
+    if shop in ("google", "", None):
+        return f"https://www.google.com/search?q={q}"
 
-
-# ============================
-#   GESTION DU CACHE
-# ============================
-
-cache = {}
-
-
-def load_cache():
-    global cache
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-        except Exception:
-            cache = {}
+    if "." in shop:
+        base = shop
     else:
-        cache = {}
+        base = f"{shop}.com"
+
+    return f"https://{base}/search?q={q}"
 
 
-def save_cache():
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("Erreur sauvegarde cache :", e)
+# ============================================================
+#  ROUTES
+# ============================================================
 
 
-def make_cache_key(image_bytes: bytes, shop: str, country: str) -> str:
-    """
-    Clé de cache basée sur :
-    - contenu de l'image (hash)
-    - boutique
-    - pays
-    """
-    h = hashlib.md5(image_bytes).hexdigest()
-    return f"{shop}|{country}|{h}"
-
-
-# Charger le cache au démarrage
-load_cache()
-
-# ============================
-#   PRÉ-TRAITEMENT IMAGE
-# ============================
-
-def preprocess_image(image_bytes: bytes, max_size: int = 800):
-    """Ouvre l'image, convertit en RGB, redimensionne, renvoie (PIL, JPEG bytes)."""
-    img = Image.open(BytesIO(image_bytes)).convert("RGB")
-    img.thumbnail((max_size, max_size))
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=85)
-    return img, buf.getvalue()
-
-
-
-
-# ============================
-#   OCR (TEXTE DANS L’IMAGE)
-# ============================
-
-def ocr_extract_text(pil_img: Image.Image) -> str:
-    """OCR basique avec pytesseract (gratuit)."""
-    try:
-        enhanced = ImageEnhance.Contrast(pil_img).enhance(2.0)
-        gray = ImageOps.grayscale(enhanced)
-        text = pytesseract.image_to_string(gray)
-        return text.strip()
-    except Exception as e:
-        print("Erreur OCR :", e)
-        return ""
-
-
-# ============================
-#   ROUTES FLASK
-# ============================
-
-@app.route("/")
-def home():
+@app.route("/", methods=["GET"])
+def index():
     return render_template("index.html")
 
 
 @app.route("/analyse", methods=["POST"])
 def analyse():
-    """
-    Endpoint principal :
-    - Reçoit une image (form-data "file")
-    - Paramètres envoyés dans le FormData : country, shop, custom_shop
-    """
-
-    # 1) Récupérer l'image
+    # 1) Image brute
     if not request.files and not request.get_data():
         return jsonify({"ok": False, "error": "Aucune image reçue."}), 400
 
     if request.files:
         file = request.files.get("file")
         if not file:
-            return jsonify({"ok": False, "error": "Champ 'file' manquant."}), 400
+            return jsonify({
+                "ok": False,
+                "error": "Champ 'file' manquant."
+            }), 400
         raw_bytes = file.read()
     else:
         raw_bytes = request.get_data()
 
     if not raw_bytes:
-        return jsonify({"ok": False, "error": "Image vide."}), 400
+        return jsonify({"ok": False, "error": "Image vide ou invalide."}), 400
 
-    # 2) Boutique & pays (FormData d'abord, sinon query)
-    shop = (request.form.get("shop")
-            or request.args.get("shop")
+    # 2) Paramètres boutique / pays
+    shop = (request.form.get("shop") or request.args.get("shop")
             or "").strip().lower()
 
-    country = (request.form.get("country")
-               or request.args.get("country")
-               or "").strip().lower()
+    country = (request.form.get("country") or request.args.get("country")
+               or "global").strip().lower()
 
     custom_shop = (request.form.get("custom_shop") or "").strip()
 
-    # Ce qui sera utilisé pour l'URL
     if shop == "custom" and custom_shop:
         shop_for_url = custom_shop
         shop_label = custom_shop
-    else:
+    elif shop == "local":
+        shop_for_url = "local"
+        shop_label = "Catalogue local (par image)"
+    elif shop:
         shop_for_url = shop
-        shop_label = shop or ""
+        mapping = {
+            "amazon": "Amazon",
+            "google": "Google Shopping",
+            "jumia": "Jumia",
+        }
+        shop_label = mapping.get(shop, shop)
+    else:
+        shop_for_url = "google"
+        shop_label = "Google Shopping"
 
-    # 3) Cache
-    key = make_cache_key(raw_bytes, shop_for_url, country)
-    if key in cache:
-        data = cache[key]
-        data_out = dict(data)
-        data_out["ok"] = True
-        data_out["from_cache"] = True
-        data_out["source"] = data_out.get("source", "cache")
-        return jsonify(data_out), 200
-
-    # 4) Pré-traitement image
+    # 3) Prétraitement image
     try:
         pil_img, processed_bytes = preprocess_image(raw_bytes)
     except Exception:
-        return jsonify({"ok": False, "error": "Impossible de lire l'image."}), 400
+        return jsonify({
+            "ok": False,
+            "error": "Impossible de lire l'image."
+        }), 400
 
-    # 5) IA + OCR
+        
+# 4) MODE CATALOGUE LOCAL (par image) -> FAISS
+    if shop_for_url == "local":
+        # Recherche FAISS / fallback local
+        results, local_source = local_search_with_faiss(pil_img, k=5)
+
+        # DEBUG pour vérifier ce que FAISS retourne
+        print(
+            "DEBUG /analyse local -> nb_resultats =",
+            len(results),
+            "source =",
+            local_source,
+        )
+
+        # Cas : index vraiment indisponible ou vide
+        if (not results) and local_source in ("local-missing", "local-empty"):
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "Index local indisponible (aucun produit).",
+                    "source": local_source,
+                }
+            ), 200
+
+        # Si pour une raison bizarre on a quand même 0 résultat ici,
+        # on renvoie un message d'erreur simple.
+        if not results:
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "Aucun produit du catalogue local n'a pu être renvoyé.",
+                    "source": local_source,
+                }
+            ), 200
+
+        # URL principale du 1er résultat (pour le gros bouton violet)
+        main_url = results[0].get("url") or "#"
+
+        # Préparer le payload pour debug + réponse
+        debug_payload = {
+            "ok": True,
+            "description": "photo de produit en ligne",
+            "shop": "local",
+            "shop_label": shop_label,
+            "country": country,
+            "url": main_url,
+            "source": local_source,
+            "openai_enabled": openai_client is not None,
+            "local_results": results,
+        }
+        print("DEBUG /analyse local -> payload =", debug_payload)
+
+        return jsonify(debug_payload), 200
+    # 5) IA + OCR (pour boutiques externes)
     query_ia = ai_describe_image(processed_bytes)
     query_ocr = ocr_extract_text(pil_img)
 
-    # Logs debug
     print("DEBUG query_ia:", repr(query_ia))
     print("DEBUG query_ocr:", repr(query_ocr))
 
-    # 6) Sélection de la meilleure requête
-    if query_ia and query_ocr:
-        final_query = f"{query_ia} {query_ocr}"
-        source = "vision+ocr"
-    elif query_ia:
+    if query_ia:
         final_query = query_ia
-        source = "vision-only"
+        source_text = "vision-only"
     elif query_ocr:
         final_query = query_ocr
-        source = "ocr-only"
+        source_text = "ocr-only"
     else:
-        # Fallback si rien détecté
         final_query = "photo de produit en ligne"
-        source = "default"
+        source_text = "fallback"
 
-    # 7) Construire l'URL de recherche
-    final_url = build_shop_url(shop_for_url, country, final_query)
+    # 6) Construction URL boutique
+    search_url = build_shop_url(final_query, shop_for_url, country)
 
-    # 8) Préparer la réponse
-    response_data = {
+    # 7) Réponse finale
+    return jsonify({
         "ok": True,
         "description": final_query,
-        "shop": shop_for_url or None,
-        "shop_label": shop_label or None,
-        "country": country or "global",
-        "url": final_url,
-        "source": source,
-        "from_cache": False,
-        "openai_enabled": client is not None,
-    }
+        "shop": shop_for_url,
+        "shop_label": shop_label,
+        "country": country,
+        "url": search_url,
+        "source": source_text,
+        "openai_enabled": openai_client is not None,
+    }), 200
 
-    # 9) Sauvegarder dans le cache
-    cache[key] = {
-        "description": response_data["description"],
-        "shop": response_data["shop"],
-        "shop_label": response_data["shop_label"],
-        "country": response_data["country"],
-        "url": response_data["url"],
-        "source": response_data["source"],
-    }
-    save_cache()
 
-    return jsonify(response_data), 200
-# ============================
-#   LANCEMENT LOCAL / RENDER
-# ============================
+# ============================================================
+#  LANCEMENT LOCAL / REPLIT
+# ============================================================
 
 if __name__ == "__main__":
-    # Replit requires port 5000 for frontend
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)

@@ -3,5 +3,237 @@
     "description": "Le produit est un four toaster combiné avec une cafetière, de style rétro et de couleur rose. Il est destiné à un usage domestique et peut être utilisé par tous. Sa matière est principalement en plastique avec des éléments en métal pour les grilles et le bol. \n\nPhrase de recherche : \"four toaster rose avec cafetière intégrée\".",
     "shop": "jumia.ci",
     "url": "https://www.google.com/search?q=Le+produit+est+un+four+toaster+combin%C3%A9+avec+une+cafeti%C3%A8re%2C+de+style+r%C3%A9tro+et+de+couleur+rose.+Il+est+destin%C3%A9+%C3%A0+un+usage+domestique+et+peut+%C3%AAtre+utilis%C3%A9+par+tous.+Sa+mati%C3%A8re+est+principalement+en+plastique+avec+des+%C3%A9l%C3%A9ments+en+m%C3%A9tal+pour+les+grilles+et+le+bol.+%0A%0APhrase+de+recherche+%3A+%22four+toaster+rose+avec+cafeti%C3%A8re+int%C3%A9gr%C3%A9e%22."
+  },
+  "google|global|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+photo+de+produit+en+ligne",
+    "source": "default"
+  },
+  "jumia|civ|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "civ",
+    "url": "https://www.jumia.ci/catalog/?q=photo+de+produit+en+ligne",
+    "source": "default"
+  },
+  "jumia|global|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "global",
+    "url": "https://www.jumia.com/catalog/?q=photo+de+produit+en+ligne",
+    "source": "default"
+  },
+  "local|global|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "local",
+    "shop_label": "local",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:local+photo+de+produit+en+ligne",
+    "source": "default"
+  },
+  "google|global|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+GUYISA",
+    "source": "ocr-only"
+  },
+  "jumia|civ|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "civ",
+    "url": "https://www.jumia.ci/catalog/?q=GUYISA",
+    "source": "ocr-only"
+  },
+  "Facebook|civ|8829db89576a98ece53513139f769703": {
+    "description": "y Moncitron\n\nFresh Citrus\n\noncitron",
+    "shop": "Facebook",
+    "shop_label": "Facebook",
+    "country": "civ",
+    "url": "https://www.google.com/search?q=site:facebook+y+Moncitron%0A%0AFresh+Citrus%0A%0Aoncitron",
+    "source": "ocr-only"
+  },
+  "alibaba|civ|8829db89576a98ece53513139f769703": {
+    "description": "y Moncitron\n\nFresh Citrus\n\noncitron",
+    "shop": "alibaba",
+    "shop_label": "alibaba",
+    "country": "civ",
+    "url": "https://www.alibaba.com/trade/search?SearchText=y+Moncitron%0A%0AFresh+Citrus%0A%0Aoncitron",
+    "source": "ocr-only"
+  },
+  "alibaba|global|aeb367fb744770f2b922241cca74aafb": {
+    "description": "NETO:-9009",
+    "shop": "alibaba",
+    "shop_label": "alibaba",
+    "country": "global",
+    "url": "https://www.alibaba.com/trade/search?SearchText=NETO%3A-9009",
+    "source": "ocr-only"
+  },
+  "alibaba|global|fcb75c0d5d39e7588707cfe80a55d693": {
+    "description": "Reebay\n finfly seep",
+    "shop": "alibaba",
+    "shop_label": "alibaba",
+    "country": "global",
+    "url": "https://www.alibaba.com/trade/search?SearchText=Reebay%0A+finfly+seep",
+    "source": "ocr-only"
+  },
+  "jumia|civ|98bca0b7170d19b3e72b5e33a343b9e9": {
+    "description": "=~ SMART",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "civ",
+    "url": "https://www.jumia.ci/catalog/?q=%3D~+SMART",
+    "source": "ocr-only"
+  },
+  "jumia|civ|55f609aae9a235d4d0458087c8f9ea32": {
+    "description": "JUMIAO\n\nDU 03 - 30 NOV\n\nSPONSOR OFFICIEL",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "civ",
+    "url": "https://www.jumia.ci/catalog/?q=JUMIAO%0A%0ADU+03+-+30+NOV%0A%0ASPONSOR+OFFICIEL",
+    "source": "ocr-only"
+  },
+  "google|global|55f609aae9a235d4d0458087c8f9ea32": {
+    "description": "JUMIAO\n\nDU 03 - 30 NOV\n\nSPONSOR OFFICIEL",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+JUMIAO%0A%0ADU+03+-+30+NOV%0A%0ASPONSOR+OFFICIEL",
+    "source": "ocr-only"
+  },
+  "google|global|2290078bee548917b16cb18d04a9521d": {
+    "description": "073 PRMO « LA i\n\nO % google.comisean +\n\nGoogle &)\n\nQ oneci X &\n\nTous Actualités Images Vidéos Maps\n\nOuvert actuellement | | Les mieux notés.\n\n© Cocody, Abidjan - Choisir une zone H\n\nONECI\nhitps://www oneci ci\n\nONECI\n\nPage d'accueil du site web officiel de [Office\nNational de 'Etat Civil et de l'dentification de Cote\ndiivoire : Etat Civi, Carte dldentité, ..\n\nSuivi du statut de la CNI >\nConsultation de I'état d'une ... >\nAccueil >\nCNI Document a fournir >\n\n= o <4",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+073+PRMO+%C2%AB+LA+i%0A%0AO+%25+google.comisean+%2B%0A%0AGoogle+%26%29%0A%0AQ+oneci+X+%26%0A%0ATous+Actualit%C3%A9s+Images+Vid%C3%A9os+Maps%0A%0AOuvert+actuellement+%7C+%7C+Les+mieux+not%C3%A9s.%0A%0A%C2%A9+Cocody%2C+Abidjan+-+Choisir+une+zone+H%0A%0AONECI%0Ahitps%3A%2F%2Fwww+oneci+ci%0A%0AONECI%0A%0APage+d%27accueil+du+site+web+officiel+de+%5BOffice%0ANational+de+%27Etat+Civil+et+de+l%27dentification+de+Cote%0Adiivoire+%3A+Etat+Civi%2C+Carte+dldentit%C3%A9%2C+..%0A%0ASuivi+du+statut+de+la+CNI+%3E%0AConsultation+de+I%27%C3%A9tat+d%27une+...+%3E%0AAccueil+%3E%0ACNI+Document+a+fournir+%3E%0A%0A%3D+o+%3C4",
+    "source": "ocr-only"
+  },
+  "google|global|fc12e476aa22f298f98ab113e9a332de": {
+    "description": "Oneci",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+Oneci",
+    "source": "ocr-only"
+  },
+  "aliexpress|global|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "aliexpress",
+    "shop_label": "aliexpress",
+    "country": "global",
+    "url": "https://www.aliexpress.com/wholesale?SearchText=GUYISA",
+    "source": "ocr-only"
+  },
+  "jumia|global|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "global",
+    "url": "https://www.jumia.com/catalog/?q=GUYISA",
+    "source": "ocr-only"
+  },
+  "E.Leclerc|global|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "E.Leclerc",
+    "shop_label": "E.Leclerc",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:e.leclerc+GUYISA",
+    "source": "ocr-only"
+  },
+  "Leboncoin|france|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "Leboncoin",
+    "shop_label": "Leboncoin",
+    "country": "france",
+    "url": "https://www.google.com/search?q=site:leboncoin+GUYISA",
+    "source": "ocr-only"
+  },
+  "fr.made-in-china.com https://fr.made-in-china.com|france|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "fr.made-in-china.com https://fr.made-in-china.com",
+    "shop_label": "fr.made-in-china.com https://fr.made-in-china.com",
+    "country": "france",
+    "url": "https://www.google.com/search?q=site:fr.made-in-china.com+https%3A%2F%2Ffr.made-in-china.com+GUYISA",
+    "source": "ocr-only"
+  },
+  "fr.made-in-china.com https://fr.made-in-china.com|global|f5fcd49606768fa4375e1ef98d07cd85": {
+    "description": "GUYISA",
+    "shop": "fr.made-in-china.com https://fr.made-in-china.com",
+    "shop_label": "fr.made-in-china.com https://fr.made-in-china.com",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:fr.made-in-china.com+https%3A%2F%2Ffr.made-in-china.com+GUYISA",
+    "source": "ocr-only"
+  },
+  "google|global|78d438b369ca870604494a05b70313f9": {
+    "description": "PROM .\n\n0 % replit.com\n\n< © Preview H\n\n-\n\nPreview your app here\n\nThe app is currently not running,\n\n- to see the results of your app.",
+    "shop": "google",
+    "shop_label": "google",
+    "country": "global",
+    "url": "https://www.google.com/search?q=site:google+PROM+.%0A%0A0+%25+replit.com%0A%0A%3C+%C2%A9+Preview+H%0A%0A-%0A%0APreview+your+app+here%0A%0AThe+app+is+currently+not+running%2C%0A%0A-+to+see+the+results+of+your+app.",
+    "source": "ocr-only"
+  },
+  "amazon|global|418f505e53ac2e8ca0e379588688ff9f": {
+    "description": "photo de produit en ligne",
+    "shop": "amazon",
+    "shop_label": "amazon",
+    "country": "global",
+    "url": "https://www.amazon.com/s?k=photo+de+produit+en+ligne",
+    "source": "fallback"
+  },
+  "jumia|global|2eebbe490e5825b1b3da3dccffa04e0a": {
+    "description": "photo de produit en ligne",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "global",
+    "url": "https://www.jumia.com/catalog/?q=photo+de+produit+en+ligne",
+    "source": "fallback"
+  },
+  "jumia|civ|2eebbe490e5825b1b3da3dccffa04e0a": {
+    "description": "photo de produit en ligne",
+    "shop": "jumia",
+    "shop_label": "jumia",
+    "country": "civ",
+    "url": "https://www.jumia.ci/catalog/?q=photo+de+produit+en+ligne",
+    "source": "fallback"
+  },
+  "amazon|global|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "amazon",
+    "shop_label": "amazon",
+    "country": "global",
+    "url": "https://www.amazon.com/s?k=photo+de+produit+en+ligne",
+    "source": "fallback"
+  },
+  "aliexpress|global|71c6dc14c2ec538da34500a6f7e86d0e": {
+    "description": "photo de produit en ligne",
+    "shop": "aliexpress",
+    "shop_label": "aliexpress",
+    "country": "global",
+    "url": "https://www.aliexpress.com/wholesale?SearchText=photo+de+produit+en+ligne",
+    "source": "fallback"
+  },
+  "amazon|global|7254d7ecca0b65ed182d1588ff2080fe": {
+    "description": "Q {4 Rechercher X\n\nTous  Filles vétements ensembles  Filles robes ey\n\ne N\n(rierpar v ) ( commande minimate v ) ( Prix duj\n\\ \\\n\nCostume descalade pour .. Ensemble de vétements\n\n2947-3183FCFA  2947-3 183 F CFA\n\nQuantité min. : 3 jeux Quantité min. : 3 jeux\nTyren 2yrs-ON\n10 vendus 24 vendus\n\nSaint Valentin décontracté ... Nouveauné bébé filles\n\n4122 F CFA 3473FCFA 7\nQuantité min. : 1 piece Quantité 1 pigce\nLivraison prévue dicile 22 ... Livraison prévue dici le 29 ..\n\nSyis-ON 3yrs ON\n\nAo]\n\nT vendu\ne e e—\n\n= (o} N",
+    "shop": "amazon",
+    "shop_label": "amazon",
+    "country": "global",
+    "url": "https://www.amazon.com/s?k=Q+%7B4+Rechercher+X%0A%0ATous++Filles+v%C3%A9tements+ensembles++Filles+robes+ey%0A%0Ae+N%0A%28rierpar+v+%29+%28+commande+minimate+v+%29+%28+Prix+duj%0A%5C+%5C%0A%0ACostume+descalade+pour+..+Ensemble+de+v%C3%A9tements%0A%0A2947-3183FCFA++2947-3+183+F+CFA%0A%0AQuantit%C3%A9+min.+%3A+3+jeux+Quantit%C3%A9+min.+%3A+3+jeux%0ATyren+2yrs-ON%0A10+vendus+24+vendus%0A%0ASaint+Valentin+d%C3%A9contract%C3%A9+...+Nouveaun%C3%A9+b%C3%A9b%C3%A9+filles%0A%0A4122+F+CFA+3473FCFA+7%0AQuantit%C3%A9+min.+%3A+1+piece+Quantit%C3%A9+1+pigce%0ALivraison+pr%C3%A9vue+dicile+22+...+Livraison+pr%C3%A9vue+dici+le+29+..%0A%0ASyis-ON+3yrs+ON%0A%0AAo%5D%0A%0AT+vendu%0Ae+e+e%E2%80%94%0A%0A%3D+%28o%7D+N",
+    "source": "ocr-only"
+  },
+  "amazon|global|584c5cdeaccfae2fec16894a900c5024": {
+    "description": "@ Moy\n\nNovember 18, 2025 at 12:42 PM\n\n1 P i\n\nAlllogs\n\nP Livetail\n\nQ search\n\nNov 18 12:45:03 P © ==> Your service\nis live\n\nNov 18 12:45:04 PH @ ==>\n\nNov 18 12:45:04 PH @ ==>\nST T\n\nNov 18 12:45:04 PH @ ==>\n\nNov 18 12:45:04 P @ ==> Available at\nyour primary URL https://prodyscan.onrend\nNov 18 12:45:04 PH @ ==>\n\nNov 18 12:45:04 PH @ ==>\nST T T\n\nNov 18 12:45:13 PM @ 127.0.0.1 - - [1\n8/Nov/2025 11:45:13] \"GET / HTTP/1.1\" 200\n\nender MCP Server\n\nstream integration (7",
+    "shop": "amazon",
+    "shop_label": "amazon",
+    "country": "global",
+    "url": "https://www.amazon.com/s?k=%40+Moy%0A%0ANovember+18%2C+2025+at+12%3A42+PM%0A%0A1+P+i%0A%0AAlllogs%0A%0AP+Livetail%0A%0AQ+search%0A%0ANov+18+12%3A45%3A03+P+%C2%A9+%3D%3D%3E+Your+service%0Ais+live%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0AST+T%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+P+%40+%3D%3D%3E+Available+at%0Ayour+primary+URL+https%3A%2F%2Fprodyscan.onrend%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0AST+T+T%0A%0ANov+18+12%3A45%3A13+PM+%40+127.0.0.1+-+-+%5B1%0A8%2FNov%2F2025+11%3A45%3A13%5D+%22GET+%2F+HTTP%2F1.1%22+200%0A%0Aender+MCP+Server%0A%0Astream+integration+%287",
+    "source": "ocr-only"
   }
 }

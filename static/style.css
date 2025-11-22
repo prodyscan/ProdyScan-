@@ -365,3 +365,35 @@ button:disabled {
     font-size: 1.3rem;
   }
 }
+/* Catalogue local : résultats produits */
+
+.local-results {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.local-product {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.local-product img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.local-product h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.local-product p {
+  margin: 0.15rem 0;
+  font-size: 0.85rem;
+}
