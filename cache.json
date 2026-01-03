@@ -2,7 +2,7 @@
   "jumia.ci|3ab84970210d679ecec3079664825bdb": {
     "description": "Le produit est un four toaster combiné avec une cafetière, de style rétro et de couleur rose. Il est destiné à un usage domestique et peut être utilisé par tous. Sa matière est principalement en plastique avec des éléments en métal pour les grilles et le bol. \n\nPhrase de recherche : \"four toaster rose avec cafetière intégrée\".",
     "shop": "jumia.ci",
-    "url": "https://www.google.com/search?q=Le+produit+est+un+four+toaster+combin%C3%A9+avec+une+cafeti%C3%A8re%2C+de+style+r%C3%A9tro+et+de+couleur+rose.+Il+est+destin%C3%A9+%C3%A0+un+usage+domestique+et+peut+%C3%AAtre+utilis%C3%A9+par+tous.+Sa+mati%C3%A8re+est+principalement+en+plastique+avec+des+%C3%A9l%C3%A9ments+en+m%C3%A9tal+pour+les+grilles+et+le+bol.+%0A%0APhrase+de+recherche+%3A+%22four+toaster+rose+avec+cafeti%C3%A8re+int%C3%A9gr%C3%A9e%22."
+    "url": "https://www.google.com/search"
   },
   "google|global|71c6dc14c2ec538da34500a6f7e86d0e": {
     "description": "photo de produit en ligne",
@@ -17,7 +17,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "civ",
-    "url": "https://www.jumia.ci/catalog/?q=photo+de+produit+en+ligne",
+    "url": "https://www.jumia.ci/catalog/",
     "source": "default"
   },
   "jumia|global|71c6dc14c2ec538da34500a6f7e86d0e": {
@@ -25,7 +25,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "global",
-    "url": "https://www.jumia.com/catalog/?q=photo+de+produit+en+ligne",
+    "url": "https://www.jumia.com/catalog/",
     "source": "default"
   },
   "local|global|71c6dc14c2ec538da34500a6f7e86d0e": {
@@ -49,7 +49,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "civ",
-    "url": "https://www.jumia.ci/catalog/?q=GUYISA",
+    "url": "https://www.jumia.ci/catalog/",
     "source": "ocr-only"
   },
   "Facebook|civ|8829db89576a98ece53513139f769703": {
@@ -89,7 +89,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "civ",
-    "url": "https://www.jumia.ci/catalog/?q=%3D~+SMART",
+    "url": "https://www.jumia.ci/catalog/",
     "source": "ocr-only"
   },
   "jumia|civ|55f609aae9a235d4d0458087c8f9ea32": {
@@ -97,7 +97,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "civ",
-    "url": "https://www.jumia.ci/catalog/?q=JUMIAO%0A%0ADU+03+-+30+NOV%0A%0ASPONSOR+OFFICIEL",
+    "url": "https://www.jumia.ci/catalog/",
     "source": "ocr-only"
   },
   "google|global|55f609aae9a235d4d0458087c8f9ea32": {
@@ -137,7 +137,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "global",
-    "url": "https://www.jumia.com/catalog/?q=GUYISA",
+    "url": "https://www.jumia.com/catalog/",
     "source": "ocr-only"
   },
   "E.Leclerc|global|f5fcd49606768fa4375e1ef98d07cd85": {
@@ -193,7 +193,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "global",
-    "url": "https://www.jumia.com/catalog/?q=photo+de+produit+en+ligne",
+    "url": "https://www.jumia.com/catalog/",
     "source": "fallback"
   },
   "jumia|civ|2eebbe490e5825b1b3da3dccffa04e0a": {
@@ -201,7 +201,7 @@
     "shop": "jumia",
     "shop_label": "jumia",
     "country": "civ",
-    "url": "https://www.jumia.ci/catalog/?q=photo+de+produit+en+ligne",
+    "url": "https://www.jumia.ci/catalog/",
     "source": "fallback"
   },
   "amazon|global|71c6dc14c2ec538da34500a6f7e86d0e": {
@@ -235,5 +235,6 @@
     "country": "global",
     "url": "https://www.amazon.com/s?k=%40+Moy%0A%0ANovember+18%2C+2025+at+12%3A42+PM%0A%0A1+P+i%0A%0AAlllogs%0A%0AP+Livetail%0A%0AQ+search%0A%0ANov+18+12%3A45%3A03+P+%C2%A9+%3D%3D%3E+Your+service%0Ais+live%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0AST+T%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+P+%40+%3D%3D%3E+Available+at%0Ayour+primary+URL+https%3A%2F%2Fprodyscan.onrend%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0A%0ANov+18+12%3A45%3A04+PH+%40+%3D%3D%3E%0AST+T+T%0A%0ANov+18+12%3A45%3A13+PM+%40+127.0.0.1+-+-+%5B1%0A8%2FNov%2F2025+11%3A45%3A13%5D+%22GET+%2F+HTTP%2F1.1%22+200%0A%0Aender+MCP+Server%0A%0Astream+integration+%287",
     "source": "ocr-only"
-  }
+  },
+  "products": []
 }

@@ -11,23 +11,16 @@ window.addEventListener("error", (e) => {
   alert("❌ JS ERROR : " + e.message + " (ligne " + e.lineno + ")");
 });
 
-
-
 // --------------------------------------------------
 // 1) OUTILS GÉNÉRAUX
 // --------------------------------------------------
 
-
 function parseNumberInput(el) {
   if (!el) return 0;
-  const raw = String(el.value || "")
-    .replace(/\s/g, "")
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, ""); // enlève / et tout le reste
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
+  const raw = String(el.value || "").replace(",", ".");
+  const n = parseFloat(raw);
+  return isNaN(n) ? 0 : n;
 }
-
 
 function cleanText(value) {
   if (!value) return "";
@@ -91,19 +84,6 @@ function similarity(a, b) {
 // ALERTES LIMITÉES (max 5 fois)
 // ==============================
 const ALI_ALERT_KEY = "aliscan_alibaba_only_alert_count";
-
-// ocr analyse en cours 
-let OCR_LOGGER = null; // fonction mutable
-let OCR_WORKER = null;
-let _ocrWorker = null;
-let _ocrProgressCb = null;
-let _ocrRunId = 0; // ✅ identifiant de session OCR
-
-
-
-
-
-
 
 function isProbablyAlibabaOcr(rawText) {
   const t = String(rawText || "").toLowerCase();
@@ -194,7 +174,6 @@ const urlInput      = document.getElementById("url-input");
 const analyseBtn    = document.getElementById("analyse-btn");
 const loader        = document.getElementById("loader");
 const errorText     = document.getElementById("error-text");
-
 // ==============================
 // OCR : lecture d'une capture
 // ==============================
@@ -204,25 +183,7 @@ const ocrStatus    = document.getElementById("ocr-status");
 const ocrRawEl     = document.getElementById("ocr-raw");
 const ocrResumeEl  = document.getElementById("ocr-resume");
 const toggleOcrBtn = document.getElementById("toggle-ocr-btn");
-const input = document.getElementById("images-input");
-const progressLabel = document.getElementById("progress-label"); // le texte "Lecture..."
-const progressBar = document.getElementById("progress-bar");     // si tu as une barre
 
-function setProgress(i, total, pct) {
-  if (progressLabel) progressLabel.textContent = `⏳ Lecture... (${i}/${total}) - ${pct}%`;
-  if (progressBar) progressBar.value = pct;
-}
-
-function resetProgress() {
-  const total = input?.files?.length || 0;
-  if (total > 0) setProgress(0, total, 0);
-  else if (progressLabel) progressLabel.textContent = "";
-  if (progressBar) progressBar.value = 0;
-}
-
-if (input) {
-  input.addEventListener("change", resetProgress);
-}
 // ==============================
 // Mini bouton Alibaba (toujours visible)
 // ==============================
@@ -347,368 +308,20 @@ function resetOcrUI() {
   // 8) optionnel: remettre le texte du bouton toggle si tu veux
   if (toggleOcrBtn) toggleOcrBtn.textContent = "📄 Voir le texte brut";
 }
- 
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll("button, a").forEach((el) => {
-    el.addEventListener("click", () => {
-      closeRecipientModal();
-    });
-  });
-});
-
 
 
 // ==============================
-// 💳 PAYWALL V2 (Billing v1)
-// - Essai 1 fois : 5 analyses (save/export OK)
-// - Après essai : 3 analyses / jour (save/export OFF)
-// - Packs cumulables : 10 (100 FCFA) / 100 (500 FCFA)
-// - Abonnements : 1000/mois illimité, 10000/an illimité
+// 💳 PAYWALL V1 (REMPLACEMENT UNIQUE)
+// - Free : 5 OCR gratuits
+// - Pack : crédits (ex: 10 analyses à 100 FCFA)
+// - Pro : illimité + sauvegarde + export
 // ==============================
 
-const BILLING_KEY = "aliscan_billing_v2";
-const PLAN_KEY = "aliscan_plan";
-const OCR_USED_KEY = "aliscan_ocr_used";
-const CREDITS_KEY = "aliscan_credits";
-
-const TRIAL_KEY = "aliscan_trial_left";
-const DAILY_FREE_KEY = "aliscan_daily_free_left";
-const DAILY_FREE_DATE_KEY = "aliscan_daily_free_date";
-
-// trial key
-// essais gratuits (save+export)
-
-
-function initPlan() {
-  if (!localStorage.getItem(PLAN_KEY)) localStorage.setItem(PLAN_KEY, "free");
-  if (!localStorage.getItem(OCR_USED_KEY)) localStorage.setItem(OCR_USED_KEY, "0");
-  if (!localStorage.getItem(CREDITS_KEY)) localStorage.setItem(CREDITS_KEY, "0");
-
-  if (!localStorage.getItem(TRIAL_KEY)) localStorage.setItem(TRIAL_KEY, "5"); // ✅ 5 essais
-  resetDailyFreeIfNeeded();
-}
-initPlan();
-
-function getTrialLeft() {
-  return parseInt(localStorage.getItem(TRIAL_KEY) || "0", 10) || 0;
-}
-function decTrial() {
-  localStorage.setItem(TRIAL_KEY, String(Math.max(0, getTrialLeft() - 1)));
-}
-
-// ✅ 3 gratuits/jour (sans save/export)
-function resetDailyFreeIfNeeded() {
-  const today = new Date().toISOString().slice(0, 10);
-  const last = localStorage.getItem(DAILY_FREE_DATE_KEY);
-  if (last !== today) {
-    localStorage.setItem(DAILY_FREE_DATE_KEY, today);
-    localStorage.setItem(DAILY_FREE_KEY, "3");
-  }
-}
-function getDailyFreeLeft() {
-  resetDailyFreeIfNeeded();
-  return parseInt(localStorage.getItem(DAILY_FREE_KEY) || "0", 10) || 0;
-}
-function decDailyFree() {
-  resetDailyFreeIfNeeded();
-  localStorage.setItem(DAILY_FREE_KEY, String(Math.max(0, getDailyFreeLeft() - 1)));
-}
-
-// ===== BILLING V2 (simple) =====
-
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getBilling() {
-  try {
-    const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
-    return {
-      trialLeft: Number(b.trialLeft ?? 5),          // 5 essais (save+export)
-      packCredits: Number(b.packCredits ?? 0),      // crédits OCR payants (packs)
-      packSaves: Number(b.packSaves ?? 0),          // enregistrements payants (packs)
-      subUntil: Number(b.subUntil ?? 0),            // timestamp fin abonnement
-      subPlan: String(b.subPlan ?? ""),             // "month" | "year" | ""
-      freeDay: b.freeDay && b.freeDay.date ? b.freeDay : { date: todayKey(), used: 0 },
-    };
-  } catch {
-    return { trialLeft: 5, packCredits: 0, packSaves: 0, subUntil: 0, subPlan: "", freeDay: { date: todayKey(), used: 0 } };
-  }
-}
-
-function setBilling(b) {
-  localStorage.setItem(BILLING_KEY, JSON.stringify(b));
-}
-
-function isSubActive(b) {
-  return (b?.subUntil || 0) > Date.now();
-}
-
-// 3 analyses gratuites / jour (après essai)
-function getFreeRemaining(b) {
-  const t = todayKey();
-  if (!b.freeDay || b.freeDay.date !== t) {
-    b.freeDay = { date: t, used: 0 };
-  }
-  return Math.max(0, 3 - Number(b.freeDay.used || 0));
-}
-function consumeFree(b) {
-  const left = getFreeRemaining(b);
-  if (left <= 0) return false;
-  b.freeDay.used = Number(b.freeDay.used || 0) + 1;
-  return true;
-}
-
-
-function activatePack(n) {
-  const b = getBilling();
-  b.packCredits = (b.packCredits || 0) + n;
-  b.packSaves   = (b.packSaves   || 0) + n;
-  setBilling(b);
-}
-
-function activatePro(plan) {
-  const b = getBilling();
-  const now = Date.now();
-
-  b.subPlan = plan; // "month" | "year"
-  const days = (plan === "year") ? 365 : 30;
-
-  // IMPORTANT : on remplace, pas de cumul
-  b.subUntil = now + days * 24 * 60 * 60 * 1000;
-
-  setBilling(b);
-}
-
-function cancelPro() {
-  const b = getBilling();
-  b.subUntil = 0;
-  b.subPlan = "";
-  setBilling(b);
-  if (typeof toast === "function") toast("✅ Abonnement Pro désactivé");
-}
-
-// ==============================
-// SAVE / EXPORT (Billing V2 propre)
-// ==============================
-function canSaveAndExport() {
-  const b = getBilling();
-  if (isSubActive(b)) return { ok: true, mode: "sub" };          // Pro
-  if ((b.packSaves || 0) > 0) return { ok: true, mode: "pack" }; // Packs
-  if ((b.trialLeft || 0) > 0) return { ok: true, mode: "trial" };// Essai
-  return { ok: false, reason: "locked" };
-}
-
-function consumeSaveExport(mode) {
-  const b = getBilling();
-
-  if (mode === "sub") return true;
-
-  if (mode === "pack") {
-    if ((b.packSaves || 0) <= 0) return false;
-    b.packSaves -= 1;
-    setBilling(b);
-    return true;
-  }
-
-  if (mode === "trial") {
-    if ((b.trialLeft || 0) <= 0) return false;
-    b.trialLeft -= 1;
-    setBilling(b);
-    return true;
-  }
-
-  return false;
-}
-
-// ✅ Export OCR autorisé ?
-function canExportOcrNow() {
-  const s = canSaveAndExport();
-  if (s.ok) return true;
-  // optionnel : autoriser export si analyse PRO/PACK/TRIAL a eu lieu
-  if (window.lastOcrSnapshot && window.lastOcrSnapshot._exportAllowed === true) return true;
-  return false;
-}
-
-/*function canUseSaveExport() {
-if (isPro()) return { ok: true, mode: "pro" };
-const credits = getCredits();
-if (credits > 0) return { ok: true, mode: "pack" };
-if (getTrialLeft() > 0) return { ok: true, mode: "trial" }; // ✅ essais gratuits
-return { ok: false, reason: "locked" };
-}
-
-function consumeSaveExport(mode) {
-if (mode === "pack") setCredits(getCredits() - 1);
-else if (mode === "trial") decTrial();
-}*/
-
-
-function canUseOcr() {
-  const b = getBilling();
-
-  if (isSubActive(b)) return { ok: true, mode: "sub" };   // IMPORTANT: "sub"
-  if ((b.trialLeft || 0) > 0) return { ok: true, mode: "trial" };
-  if ((b.packCredits || 0) > 0) return { ok: true, mode: "pack" };
-
-  const freeLeft = getFreeRemaining(b);
-  if (freeLeft > 0) return { ok: true, mode: "free" };
-
-  return { ok: false, reason: "limit" };
-}
-
-function consumeOcr() {
-  const b = getBilling();
-
-  if (isSubActive(b)) {
-    setBilling(b);
-    return { ok: true, mode: "sub" };
-  }
-
-  if ((b.trialLeft || 0) > 0) {
-    b.trialLeft -= 1;
-    setBilling(b);
-    return { ok: true, mode: "trial" };
-  }
-
-  if ((b.packCredits || 0) > 0) {
-    b.packCredits -= 1;
-    setBilling(b);
-    return { ok: true, mode: "pack" };
-  }
-
-  const freeLeft = getFreeRemaining(b);
-  if (freeLeft > 0) {
-    b.freeDay.used = (b.freeDay.used || 0) + 1;
-    setBilling(b);
-    return { ok: true, mode: "free" };
-  }
-
-  setBilling(b);
-  return { ok: false, reason: "limit" };
-}
-
-
-
-// ✅ Message paywall (affiche aussi ce qu’il reste)
-function paywallMsg() {
-  const b = getBilling();
-  const freeLeft = getFreeRemaining(b);
-
-  const parts = [];
-  parts.push("❌ Limite atteinte.");
-
-  // infos restantes
-  parts.push(`Essai restant : ${b.trialLeft || 0}/5`);
-  parts.push(`Pack restant : ${b.packCredits || 0} analyse(s)`);
-  parts.push(`Gratuit/jour restant : ${freeLeft}/3`);
-
-  // offres
-  parts.push("");
-  parts.push("✅ Packs :");
-  parts.push("• 100 FCFA → 10 analyses + 10 enregistrements + export PDF/Excel");
-  parts.push("• 500 FCFA → 100 analyses + 100 enregistrements + export PDF/Excel");
-  parts.push("");
-  parts.push("✅ Abonnements :");
-  parts.push("• 1000 FCFA / mois → illimité (analyse + save + export)");
-  parts.push("• 10000 FCFA / an → illimité");
-
-  return parts.join("\n");
-}
-
-
-
-
-
-
-function askRecipient() {
-  return new Promise((resolve) => {
-    const choice = prompt(
-      "Acheter le pack pour qui ?\n\n1 = Moi\n2 = Ami",
-      "1"
-    );
-
-    resolve(choice === "2" ? "friend" : "self");
-  });
-}
-
-async function buyPack(amount) {
-  const who = await askRecipient();
-
-  if (who === "friend") {
-    toast(`🎁 Pack ${amount} payé pour un ami`);
-    return;
-  }
-
-  const b = getBilling();
-  b.packCredits = (b.packCredits || 0) + amount;
-  b.packSaves   = (b.packSaves || 0) + amount;
-  setBilling(b);
-
-  toast(`✅ Pack ${amount} ajouté à votre compte`);
-  refreshPricingUI();
-}
-// ------------------------------
-// API simple pour tests (comme ton window.Paywall)
-// ------------------------------
-window.Paywall = {
-  status() {
-    const b = getBilling();
-    return {
-      trialLeft: b.trialLeft,
-      packCredits: b.packCredits,
-      packSaves: b.packSaves,
-      freeLeftToday: getFreeRemaining(b),
-      subActive: isSubActive(b),
-      subUntil: b.subUntil
-    };
-  },
-
-  resetAll() { 
-    localStorage.removeItem(BILLING_KEY);
-    alert("Paywall reset");
-  },
-
-  // Packs (cumulables)
-  addPack10() {
-    const b = getBilling();
-    b.packCredits = (b.packCredits || 0) + 10;
-    b.packSaves = (b.packSaves || 0) + 10;
-    setBilling(b);
-    alert("✅ Pack 10 ajouté. Credits=" + b.packCredits);
-  },
-  addPack100() {
-    const b = getBilling();
-    b.packCredits = (b.packCredits || 0) + 100;
-    b.packSaves = (b.packSaves || 0) + 100;
-    setBilling(b);
-    alert("✅ Pack 100 ajouté. Credits=" + b.packCredits);
-  },
-
-  // Abonnements (prolonge si déjà actif)
-  subMonthly() {
-    const b = getBilling();
-    const now = Date.now();
-    const base = Math.max(now, b.subUntil || 0);
-    b.subUntil = base + 30 * 24 * 60 * 60 * 1000;
-    setBilling(b);
-    alert("✅ Abonnement mensuel activé");
-  },
-  subYearly() {
-    const b = getBilling();
-    const now = Date.now();
-    const base = Math.max(now, b.subUntil || 0);
-    b.subUntil = base + 365 * 24 * 60 * 60 * 1000;
-    setBilling(b);
-    alert("✅ Abonnement annuel activé");
-  }
-};
-
-
-
-// Init paywall
+const PLAN_KEY     = "aliscan_plan";        // "free" | "pro"
+const OCR_USED_KEY = "aliscan_ocr_used";    // nb OCR utilisés en free
+const CREDITS_KEY  = "aliscan_credits";     // crédits restants (pack)
+
+// init
 function initPlan() {
   if (!localStorage.getItem(PLAN_KEY))     localStorage.setItem(PLAN_KEY, "free");
   if (!localStorage.getItem(OCR_USED_KEY)) localStorage.setItem(OCR_USED_KEY, "0");
@@ -716,213 +329,93 @@ function initPlan() {
 }
 initPlan();
 
-
-
-
-        
-
-// bouton close pack pour ami
-function closeRecipientModal() {
-  const modal = document.getElementById("recipient-modal");
-  if (modal) modal.hidden = true;
+function getPlan() {
+  return (localStorage.getItem(PLAN_KEY) || "free").trim();
 }
-
-// ==============================
-// PRICING (VERSION UNIQUE, PROPRE)
-// ==============================
-
-// Badge abonnement
-function setActiveBadge(active) {
-  ["free", "trial", "pro"].forEach((k) => {
-    const el = document.getElementById("badge-" + k);
-    if (el) el.hidden = (k !== active);
-  });
+function isPro() {
+  return getPlan() === "pro";
 }
-
-// --- UI uniquement (AUCUN onclick ici) ---
-function refreshPricingUI() {
-  const b = getBilling();
-  const sub = isSubActive(b);
-  const freeLeft = getFreeRemaining(b);
-
-  // BADGE
-  if (sub) setActiveBadge("pro");
-  else if ((b.trialLeft || 0) > 0) setActiveBadge("trial");
-  else setActiveBadge("free");
-
-  // TEXTES
-  const planLabel = sub ? "PRO" : ((b.trialLeft || 0) > 0 ? "ESSAI" : "FREE");
-  const subType = sub ? (b.subPlan === "year" ? "Annuel" : "Mensuel") : "—";
-
-  const el = (id) => document.getElementById(id);
-
-  if (el("st-plan")) el("st-plan").textContent = planLabel;
-  if (el("st-subType")) el("st-subType").textContent = subType;
-
-  if (el("st-trial")) el("st-trial").textContent = String(b.trialLeft || 0);
-  if (el("st-packCredits")) el("st-packCredits").textContent = String(b.packCredits || 0);
-  if (el("st-packSaves")) el("st-packSaves").textContent = String(b.packSaves || 0);
-  if (el("st-freeLeft")) el("st-freeLeft").textContent = String(freeLeft);
-
-  // BOUTONS (état/texte seulement)
-  const btnM = el("buy-pro-month");
-  const btnY = el("buy-pro-year");
-  const btnCancel = el("cancel-pro");
-
-  if (btnM) {
-    const active = sub && b.subPlan === "month";
-    btnM.textContent = active
-      ? "✅ Pro mensuel actif"
-      : (sub ? "Passer en Mensuel — 1000 FCFA/mois" : "Activer Mensuel — 1000 FCFA/mois");
-    btnM.disabled = false;
-    btnM.classList.toggle("btn-active", active);
-  }
-
-  if (btnY) {
-    const active = sub && b.subPlan === "year";
-    btnY.textContent = active
-      ? "✅ Pro annuel actif"
-      : (sub ? "Passer en Annuel — 10 000 FCFA/an" : "Activer Annuel — 10 000 FCFA/an");
-    btnY.disabled = false;
-    btnY.classList.toggle("btn-active", active);
-  }
-
-  if (btnCancel) {
-    btnCancel.hidden = !sub; // ✅ permet de revenir en gratuit
-  }
-
-  setBilling(b); // persist reset freeDay si date a changé
+function getCredits() {
+  return parseInt(localStorage.getItem(CREDITS_KEY) || "0", 10) || 0;
 }
-
-// --- Modal (Moi / Ami) ---
-// ⚠️ Il faut que le HTML existe (ton <div id="recipient-modal"> ...)
-/*function askRecipient() {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("recipient-modal");
-    const btnSelf = document.getElementById("recipient-self");
-    const btnFriend = document.getElementById("recipient-friend");
-
-    // si le modal n'existe pas, fallback simple
-    if (!modal || !btnSelf || !btnFriend) {
-      const ok = confirm("Acheter le pack pour :\n\nOK = Moi\nAnnuler = Ami");
-      resolve(ok ? "self" : "friend");
-      return;
-    }
-
-    modal.hidden = false;
-
-    const cleanup = () => {
-      modal.hidden = true;
-      btnSelf.onclick = null;
-      btnFriend.onclick = null;
-    };
-
-    btnSelf.onclick = () => { cleanup(); resolve("self"); };
-    btnFriend.onclick = () => { cleanup(); resolve("friend"); };
-  });
-}*/
-function askRecipient() {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("recipient-modal");
-    const btnSelf = document.getElementById("recipient-self");
-    const btnFriend = document.getElementById("recipient-friend");
-
-    // sécurité
-    if (!modal || !btnSelf || !btnFriend) {
-      const ok = confirm("Pack pour qui ?\n\nOK = Moi\nAnnuler = Ami");
-      return resolve(ok ? "self" : "friend");
-    }
-
-    modal.hidden = false;
-
-    const finish = (value) => {
-      modal.hidden = true;
-      btnSelf.onclick = null;
-      btnFriend.onclick = null;
-      modal.onclick = null;
-      resolve(value);
-    };
-
-    btnSelf.onclick = () => finish("self");
-    btnFriend.onclick = () => finish("friend");
-
-    // clic en dehors = fermeture
-    modal.onclick = (e) => {
-      if (e.target === modal) finish("friend");
-    };
-  });
+function setCredits(n) {
+  localStorage.setItem(CREDITS_KEY, String(Math.max(0, parseInt(n || 0, 10) || 0)));
 }
-
-async function buyPack(amount) {
-  /*const who = await askRecipient();
-
-  if (who === "friend") {
-    if (typeof toast === "function") toast(`🎁 Pack ${amount} payé pour un ami`);
-    return;
-  }*/
-
-  const b = getBilling();
-  b.packCredits = (Number(b.packCredits) || 0) + amount;
-  b.packSaves   = (Number(b.packSaves) || 0) + amount;
-  setBilling(b);
-
-  if (typeof toast === "function") toast(`✅ Pack ${amount} ajouté à votre compte`);
-  refreshPricingUI();
+function addCredits(n = 10) {
+  setCredits(getCredits() + (parseInt(n || 0, 10) || 0));
 }
-
-// --- Bind des clics (UNE SEULE FOIS) ---
-function bindPricingButtons() {
-  const btnPack10  = document.getElementById("buy-pack-10");
-  const btnPack100 = document.getElementById("buy-pack-100");
-  const btnProM    = document.getElementById("buy-pro-month");
-  const btnProY    = document.getElementById("buy-pro-year");
-  const btnCancel  = document.getElementById("cancel-pro");
-  const btnRefresh = document.getElementById("pricing-refresh");
-  const btnReset   = document.getElementById("pricing-reset");
-
-  if (btnPack10)  btnPack10.onclick  = () => buyPack(10);
-  if (btnPack100) btnPack100.onclick = () => buyPack(100);
-
-  // switch possible (annuel <-> mensuel)
-  if (btnProM) btnProM.onclick = () => {
-    activatePro("month");
-    if (typeof toast === "function") toast("✅ Pro mensuel activé");
-    refreshPricingUI();
-  };
-
-  if (btnProY) btnProY.onclick = () => {
-    activatePro("year");
-    if (typeof toast === "function") toast("✅ Pro annuel activé");
-    refreshPricingUI();
-  };
-
-  // revenir en gratuit
-  if (btnCancel) btnCancel.onclick = () => {
-    cancelPro();
-    if (typeof toast === "function") toast("✅ Retour au gratuit");
-    refreshPricingUI();
-  };
-
-  if (btnRefresh) btnRefresh.onclick = () => refreshPricingUI();
-
-  // Reset test
-  if (btnReset) btnReset.onclick = () => {
-    localStorage.removeItem("aliscan_billing_v2");
-    if (typeof toast === "function") toast("♻️ Reset OK");
-    refreshPricingUI();
-  };
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  bindPricingButtons();
-  refreshPricingUI();
-});
-
 function getFreeUsed() {
   return parseInt(localStorage.getItem(OCR_USED_KEY) || "0", 10) || 0;
 }
 function incFreeUsed() {
   localStorage.setItem(OCR_USED_KEY, String(getFreeUsed() + 1));
+}
+
+// ✅ Peut faire une analyse OCR ?
+function canUseOcr() {
+  if (isPro()) return { ok: true };
+
+  const credits = getCredits();
+  if (credits > 0) return { ok: true };
+
+  const used = getFreeUsed();
+  if (used < 5) return { ok: true };
+
+  return { ok: false, reason: "limit" };
+}
+
+// ➖ Consomme 1 analyse OCR
+function consumeOcr() {
+  if (isPro()) return;
+
+  const credits = getCredits();
+  if (credits > 0) {
+    setCredits(credits - 1);
+    return;
+  }
+
+  incFreeUsed();
+}
+
+// ✅ Sauvegarde + export : autorisés si PRO ou si pack (crédits > 0)
+function canSaveAndExport() {
+  if (isPro()) return true;
+  if (getCredits() > 0) return true;
+  return false;
+}
+
+// Helpers UI : message paywall
+function paywallMsg() {
+  return "❌ Fonction Pro.\n\n✅ Pack : 10 analyses (100 FCFA)\nou ✅ Abonnement : 500 FCFA/mois";
+}
+
+// (Optionnel) API simple pour tes boutons d’admin/test
+window.Paywall = {
+  setPro(on) {
+    localStorage.setItem(PLAN_KEY, on ? "pro" : "free");
+    alert("PLAN = " + getPlan());
+  },
+  addPack10() {
+    addCredits(10);
+    alert("Crédits = " + getCredits());
+  },
+  resetAll() {
+    localStorage.setItem(PLAN_KEY, "free");
+    localStorage.setItem(OCR_USED_KEY, "0");
+    localStorage.setItem(CREDITS_KEY, "0");
+    alert("Paywall reset");
+  },
+  status() {
+    return { plan: getPlan(), freeUsed: getFreeUsed(), credits: getCredits() };
+  }
+};
+
+// ✅ Export OCR autorisé ? (PRO / PACK / ou analyse gratuite courante)
+function canExportOcrNow() {
+  if (isPro()) return true;
+  if (getCredits() > 0) return true;
+  if (window.lastOcrSnapshot && window.lastOcrSnapshot._exportAllowed === true) return true;
+  return false;
 }
 
 // ===============================
@@ -978,18 +471,13 @@ function showExportButtons(show) {
 }
 
 // ✅ PDF (sans texte brut, titre sans OCR) — VERSION DESIGN PRO
-function exportAnalysisToPDF(snapshot) {
-  if (!canExportOcrNow()) {
-    toast("🔒 Export réservé (pack ou abonnement).");
-    return;
-  }
-
-  if (!snapshot) {
-    toast("Aucune analyse à exporter.");
-    return;
-  }
+    function exportAnalysisToPDF(snapshot) {
+      if (!snapshot) {
+        alert("Aucune analyse à exporter.");
+        return;
+      }
       if (!window.jspdf || !window.jspdf.jsPDF) {
-        toast("jsPDF non chargé. Ajoute la librairie PDF dans ton HTML.");
+        alert("jsPDF non chargé. Ajoute la librairie PDF dans ton HTML.");
         return;
       }
 
@@ -1069,12 +557,52 @@ function exportAnalysisToPDF(snapshot) {
       doc.text("Analyse générée automatiquement – À vérifier avant décision commerciale.", 14, y);
 
       doc.save(`analyse-fournisseur-${Date.now()}.pdf`);
-/*      if (!isPro()) setCredits(getCredits() - 1);*/
     }
 
 
 
+function saveCost() {
+  if (!window.lastCostSnapshot) {
+    alert("Calcule d'abord le coût avant d'enregistrer.");
+    return;
+  }
 
+  const productName =
+    document.getElementById("product-name")?.value?.trim() || "";
+
+  const supplierName =
+    document.getElementById("supplier-name")?.value?.trim() || "";
+
+  const rawSupplierLink =
+    document.getElementById("supplier-link")?.value?.trim() || "";
+
+  const supplierLink =
+    rawSupplierLink.match(/https?:\/\/[^\s]+/)?.[0] || "";
+
+  const item = {
+    ...window.lastCostSnapshot, // totalFinal, taxes, currency, etc.
+    productName,
+    supplierName,
+    supplierLink,
+    date: new Date().toISOString(),
+  };
+  // alert("1) saveCost OK - typeof addCalcHistoryItem = " + typeof addCalcHistoryItem);
+
+  addCalcHistoryItem({
+    supplierName: item.supplierName || "Test fournisseur",
+    productName: item.productName || "Test produit",
+    currency: item.currency || "XOF",
+    date: new Date().toLocaleString(),
+    total: Number(item.total) || 0,
+    supplierLink: item.supplierLink || ""
+  });
+  // alert("2) Après addCalcHistoryItem - taille localStorage = " + localStorage.length);
+
+  // const testList = localStorage.getItem(CALC_HISTORY_KEY);
+  // alert("3) CALC_HISTORY_KEY existe ? " + (testList ? "OUI" : "NON"));
+
+  // alert("✅ Coût enregistré !");
+}
 // ==============================
 // 📄 EXPORT (PDF + EXCEL) — Coût + Marge
 // ==============================
@@ -1106,15 +634,9 @@ function showCalcExportButtons(show, prefix) {
 
 //4) PDF
 function exportCalcToPDF() {
-  // 🔒 BLOQUER SI PAS AUTORISÉ
-  const se = canSaveAndExport();
-  if (!se.ok) {
-    toast("🔒 Export réservé (pack ou abonnement).");
-    return;
-  }
   const snap = getFinalSnapshot();
   if (!snap.cost) {
-    toast("Aucun calcul de coût à exporter.");
+    alert("Aucun calcul de coût à exporter.");
     return;
   }
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -1127,83 +649,32 @@ function exportCalcToPDF() {
   let y = 15;
 
   const cur = snap.cost.currency || "XOF";
-  /*const fmt = (n) => {
-    const num = Number(String(n ?? 0).replace(/[^\d.-]/g, ""));
-    return (Number.isFinite(num) ? num : 0).toLocaleString("fr-FR");
-  };*/
+  const fmt = (n) => (Number(n || 0)).toLocaleString("fr-FR");
 
-  const fmt = (n) => {
-  const num = Number(String(n ?? 0).replace(/[^\d.-]/g, ""));
-  const s = (Number.isFinite(num) ? num : 0).toLocaleString("fr-FR");
-  return s.replace(/[\u202F\u00A0]/g, " "); // ✅ enlève espaces insécables
-};
-
-  
   doc.setFontSize(16);
   doc.text("Calcul de coût", 14, y); y += 10;
 
   doc.setFontSize(11);
   doc.text(`Devise : ${cur}`, 14, y); y += 8;
 
-  
-  /*// --- COÛT
-  doc.setFontSize(12);
-  doc.text("Détails du coût", 14, y); y += 8;
-
-  doc.setFontSize(11);
-  const addLine = (k, v) => {
-    if (v === "" || v === null || v === undefined) return;
-    doc.text(`${k} : ${v}`, 14, y);
-    y += 7;
-    if (y > 280) { doc.addPage(); y = 20; }
-  };
-
-  // ===============================
-// Infos principales (AVANT détails)
-// ===============================
-  addLine("Produit", snap.cost?.productName || "—");
-  addLine("Fournisseur", snap.cost?.supplierName || "—");
-
-// petit espace visuel
-  y += 4;
-  
-  addLine("Produits", `${fmt(snap.cost.productsTotal)} ${cur}`);
-  addLine("Livraison locale", `${fmt(snap.cost.localFees)} ${cur}`);
-  addLine("Transport international", `${fmt(snap.cost.shipping)} ${cur}`);
-  addLine("Taxes / douane (%)", snap.cost.taxesPct != null ? `${snap.cost.taxesPct}%` : "—");
-  addLine("Montant taxes", `${fmt(snap.cost.taxesAmount)} ${cur}`);
-  addLine("TOTAL FINAL", `${fmt(snap.cost.totalFinal)} ${cur}`);*/
-  
- 
-  // --- INFOS PRINCIPALES (AVANT DÉTAILS)
-  doc.setFontSize(12);
-  doc.text("Infos principales", 14, y); y += 8;
-
-  doc.setFontSize(11);
-  const addLine = (k, v) => {
-    if (v === "" || v === null || v === undefined) return;
-    doc.text(`${k} : ${v}`, 14, y);
-    y += 7;
-    if (y > 280) { doc.addPage(); y = 20; }
-  };
-
-  addLine("Produit", snap.cost?.productName || "—");
-  addLine("Fournisseur", snap.cost?.supplierName || "—");
-
-  // petit espace
-  y += 6;
-
   // --- COÛT
   doc.setFontSize(12);
   doc.text("Détails du coût", 14, y); y += 8;
 
   doc.setFontSize(11);
+  const addLine = (k, v) => {
+    if (v === "" || v === null || v === undefined) return;
+    doc.text(`${k} : ${v}`, 14, y);
+    y += 7;
+    if (y > 280) { doc.addPage(); y = 20; }
+  };
+
   addLine("Produits", `${fmt(snap.cost.productsTotal)} ${cur}`);
   addLine("Livraison locale", `${fmt(snap.cost.localFees)} ${cur}`);
   addLine("Transport international", `${fmt(snap.cost.shipping)} ${cur}`);
   addLine("Taxes / douane (%)", snap.cost.taxesPct != null ? `${snap.cost.taxesPct}%` : "—");
   addLine("Montant taxes", `${fmt(snap.cost.taxesAmount)} ${cur}`);
-  addLine("TOTAL FINAL", `${fmt(snap.cost.totalFinal)} ${cur}`); 
+  addLine("TOTAL FINAL", `${fmt(snap.cost.totalFinal)} ${cur}`);
 
   // --- MARGE (si dispo)
   if (snap.margin) {
@@ -1225,21 +696,13 @@ function exportCalcToPDF() {
   doc.text("Généré automatiquement – à vérifier avant décision commerciale.", 14, y);
 
   doc.save(`calcul-cout-marge-${Date.now()}.pdf`);
-  consumeSaveExport(se.mode);
-  if (typeof refreshPricingUI === "function") refreshPricingUI();
 }
 
 // 5) EXCEL (CSV)
 function exportCalcToExcel() {
-  // 🔒 BLOQUER SI PAS AUTORISÉ
-  const se = canSaveAndExport();
-  if (!se.ok) {
-    toast("🔒 Export réservé (pack ou abonnement).");
-    return;
-  }
   const snap = getFinalSnapshot();
   if (!snap.cost) {
-    toast("Aucun calcul de coût à exporter.");
+    alert("Aucun calcul de coût à exporter.");
     return;
   }
 
@@ -1282,9 +745,7 @@ function exportCalcToExcel() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  consumeSaveExport(se.mode);
-  if (typeof refreshPricingUI === "function") refreshPricingUI();
-  } // ✅ FIN exportCalcToExcel
+}
 
 // 6) Brancher les boutons (coût + marge) — UNE SEULE FOIS
 function initCalcExportButtons() {
@@ -1311,14 +772,8 @@ initCalcExportButtons();
 // 📊 EXPORT EXCEL (CSV)
 // ==============================
 function exportAnalysisToExcel(snapshot) {
-  const se = canSaveAndExport();
-  if (!se.ok) {
-    toast("🔒 Export réservé (pack ou abonnement).");
-    return;
-  }
-
   if (!snapshot) {
-    toast("Aucune analyse à exporter.");
+    alert("Aucune analyse à exporter.");
     return;
   }
 
@@ -1373,7 +828,6 @@ function exportAnalysisToExcel(snapshot) {
   document.body.removeChild(a);
 
   URL.revokeObjectURL(url);
-/*  if (!isPro()) setCredits(getCredits() - 1);*/
 }
 
 // Brancher les boutons
@@ -1446,32 +900,22 @@ document.addEventListener("DOMContentLoaded", () => {
   showCalcExportButtons(false, "margin");
 });
 
-
 // ==============================
 // OCR WORKER (réutilisé = plus rapide)
 // ==============================
-
-
 let ocrWorker = null;
 
 async function getOcrWorker(setStatusCb) {
-  // ✅ MAJ callback à chaque analyse (même si worker déjà créé)
-  _ocrProgressCb = setStatusCb;
-
   if (ocrWorker) return ocrWorker;
 
   ocrWorker = await Tesseract.createWorker({
     workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/worker.min.js",
     corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.4/tesseract-core.wasm.js",
     logger: (m) => {
-      if (
-        typeof _ocrProgressCb === "function" &&
-        m.status === "recognizing text" &&
-        m.progress != null
-      ) {
-        _ocrProgressCb(Math.round(m.progress * 100));
+      if (setStatusCb && m.status === "recognizing text" && m.progress != null) {
+        setStatusCb(Math.round(m.progress * 100));
       }
-    },
+    }
   });
 
   await ocrWorker.loadLanguage("fra+eng");
@@ -1479,7 +923,7 @@ async function getOcrWorker(setStatusCb) {
 
   await ocrWorker.setParameters({
     preserve_interword_spaces: "1",
-    tessedit_pageseg_mode: "11",
+    tessedit_pageseg_mode: "11"
   });
 
   return ocrWorker;
@@ -1509,7 +953,6 @@ if (window.Tesseract) {
 window.addEventListener("error", (e) => {
   console.log("JS ERROR:", e.message);
 });
-
 
 
 
@@ -2428,132 +1871,135 @@ if (fy != null) {
 
 
 
+  
 
-  // =========================================
-  // 📸 OCR : lecture + résumé automatique (1 à 5 captures)
-  // =========================================
+// =========================================
+//  📸 OCR : lecture + résumé automatique (1 à 5 captures)
+// =========================================
 if (ocrBtn && ocrInput) {
     ocrBtn.addEventListener("click", async () => {
-      const runId = ++_ocrRunId;
-
-      const check = canUseOcr();
-      if (!check.ok) { toast(paywallMsg()); return; }
-
-      hideOcrExportButtons();
-
+      showExportButtons(false);
+      // 1️⃣ Vérifier Tesseract
       if (!window.Tesseract) {
         safeSetText(ocrStatus, "❌ Analyse impossible (OCR non chargé)");
         setSaveSectionVisible(false);
         return;
       }
 
-      const files = Array.from(ocrInput.files || []);
-      const total = files.length;
+      // 2️⃣ PAYWALL
+      const check = canUseOcr();
+      if (!check.ok) {
+        alert(
+          "❌ Limite atteinte.\n\n" +
+          "✅ Pack : 10 analyses (100 FCFA)\n" +
+          "ou ✅ Abonnement : 500 FCFA/mois"
+        );
+        return;
+      }
 
-      if (!total) { toast("Choisis 1 à 5 images d’abord."); return; }
-      if (total > 5) {
+  try {
+    // ... ton code OCR
+      // 0) vérif
+      if (!window.Tesseract) {
+        safeSetText(ocrStatus, "❌ Analyse impossible. (OCR non chargé)");
+        setSaveSectionVisible(false);
+        return;
+      }
+
+      const files = Array.from(ocrInput.files || []);
+      if (files.length === 0) {
+        safeSetText(ocrStatus, "⚠️ Importe au moins une image.");
+        setSaveSectionVisible(false);
+        return;
+      }
+      if (files.length > 5) {
         safeSetText(ocrStatus, "⚠️ Maximum 5 captures.");
         setSaveSectionVisible(false);
         return;
       }
 
-      // reset UI
+      // 1) reset UI
       setSaveSectionVisible(false);
       safeSetText(ocrResumeEl, "");
       safeSetText(ocrRawEl, "");
       safeHide(ocrRawEl);
       safeHide(toggleOcrBtn);
+      safeSetText(ocrStatus, `⏳ Lecture en cours… (0/${files.length})`);
 
+      // 2) OCR multi images + concat
       let combinedText = "";
       let combinedRawText = "";
       let refSupplierName = "";
       let currentIndex = 0;
 
-      safeSetText(ocrStatus, `⏳ Lecture… (0/${total}) - 0%`);
+      // Worker réutilisé (plus rapide)
+      const worker = await getOcrWorker((p) => {
+        safeSetText(
+          ocrStatus,
+          `⏳ Lecture… (${currentIndex + 1}/${files.length}) - ${p}%`
+        );
+      });
 
-      try {
-        let lastProg = 0;
+      for (let i = 0; i < files.length; i++) {
+        currentIndex = i;
+        safeSetText(ocrStatus, `⏳ Lecture en cours… (${i + 1}/${files.length})`);
 
-        const worker = await getOcrWorker((p) => {
-          if (runId !== _ocrRunId) return;
+        const { data: { text } } = await worker.recognize(files[i]);
+        const rawText = String(text || "").trim();
 
-          // ✅ p est déjà un nombre 0..100
-          let prog = Number(p);
-          if (!Number.isFinite(prog)) return;
+        // 🔒 Anti-mélange fournisseurs (UNE SEULE FOIS)
+        const tmpSupplier = parseOcrSupplier(rawText);
+        const currentName = cleanSupplierName(tmpSupplier.name || "");
 
-          prog = Math.round(Math.max(0, Math.min(100, prog)));
+        if (currentName) {
+          if (!refSupplierName) {
+            refSupplierName = currentName; // 1ère référence
+          } else {
+            const a = vendorKey(refSupplierName);
+            const b = vendorKey(currentName);
+            const sim = similarity(a, b);
 
-          // ✅ empêche le % de redescendre
-          if (prog < lastProg) prog = lastProg;
-          lastProg = prog;
-
-          safeSetText(
-            ocrStatus,
-            `⏳ Lecture… (${currentIndex + 1}/${total}) - ${prog}%`
-          );
-        });
-
-            for (let i = 0; i < total; i++) {
-              currentIndex = i;
-              lastProg = 0; // ✅ OBLIGATOIRE
-
+            if (a && b && sim < 0.70) {
               safeSetText(
                 ocrStatus,
-                `⏳ Lecture… (${i + 1}/${total}) - 0%`
+                "⚠️ Vendeurs différents détectés. Mets seulement le même fournisseur."
               );
-
-              const res = await worker.recognize(files[i]);
-              
-            
-          const rawText = String(res?.data?.text || "").trim();
-
-          const tmpSupplier = parseOcrSupplier(rawText);
-          const currentName = cleanSupplierName(tmpSupplier?.name || "");
-
-          if (currentName) {
-            if (!refSupplierName) refSupplierName = currentName;
-            else {
-              const a = vendorKey(refSupplierName);
-              const b = vendorKey(currentName);
-              const sim = similarity(a, b);
-              if (a && b && sim < 0.70) {
-                safeSetText(ocrStatus, "⚠️ Vendeurs différents détectés. Mets seulement le même fournisseur.");
-                setSaveSectionVisible(false);
-                return;
-              }
+              setSaveSectionVisible(false);
+              return;
             }
           }
-
-          if (rawText) {
-            combinedRawText += `\n\n----- IMAGE ${i + 1} -----\n${rawText}`;
-            combinedText += `\n${rawText}`;
-          }
         }
 
-        safeSetText(ocrStatus, `✅ Lecture terminée (${total}/${total}) - 100%`);
-
-        if (!combinedText.trim()) {
-          safeSetText(ocrStatus, "⚠️ Aucun texte détecté sur les captures.");
-          setSaveSectionVisible(false);
-          return;
+        if (rawText) {
+          combinedRawText += `\n\n----- IMAGE ${i + 1} -----\n${rawText}`;
+          combinedText += `\n${rawText}`;
         }
+      }
 
-        if (!isProbablyAlibabaOcr(combinedText)) {
-          safeSetText(ocrStatus, "⚠️ Analyse impossible. Essaie une capture plus nette (même vendeur).");
-          setSaveSectionVisible(false);
-          return;
-        }
+      // 3) si rien
+      if (!combinedText.trim()) {
+        safeSetText(ocrStatus, "⚠️ Aucun texte détecté sur les captures.");
+        setSaveSectionVisible(false);
+        return;
+      }
 
-        safeSetText(ocrStatus, "⏳ Génération du résumé…");
-        
-        
-          
-  
+      // 4) Filtre Alibaba
+      if (!isProbablyAlibabaOcr(combinedText)) {
+        safeSetText(
+          ocrStatus,
+          "⚠️ Analyse impossible. Essaie une capture plus nette (même vendeur)."
+        );
+        setSaveSectionVisible(false);
+        return;
+      }
+
+      // 5) Parse fournisseur
+      safeSetText(ocrStatus, "⏳ Génération du résumé…");
+
       // ✅ 1. ON CRÉE LE FOURNISSEUR D’ABORD
       const supplier = parseOcrSupplier(combinedText);
       // ✅ AVIS BOUTIQUE — nombre d’avis
-      const shopCount = extractShopReviewsCount(combinedText); 
-        //finB
+      const shopCount = extractShopReviewsCount(combinedText);
       if (shopCount != null) {
   supplier.shop_reviews = shopCount;
 }
@@ -2752,49 +2198,26 @@ if (ocrBtn && ocrInput) {
   rawText: combinedRawText || "",
   supplier: supplier || null
 };
-    /*safeSetText(ocrStatus, "✅ Analyse terminée");
-      setSaveSectionVisible(true);
-      updateOcrExportButtons();*/   // ✅ affiche seulement si autorisé + si snapshot existe
     safeSetText(ocrStatus, "✅ Analyse terminée");
+      setSaveSectionVisible(true);
+      updateOcrExportButtons();   // ✅ affiche seulement si autorisé + si snapshot existe
 
-    // 1) Consommer (après succès seulement)
-    const used = consumeOcr();
-    if (!used || used.ok === false) {
-      if (typeof toast === "function") toast("❌ Erreur quota (consommation impossible)");
-      return;
+
+    // ✅ autoriser export pour CETTE analyse si elle est dans les 5 gratuits
+    const freeUsedBefore = getFreeUsed();
+    const creditsBefore = getCredits();
+    const exportAllowed =
+      isPro() || creditsBefore > 0 || freeUsedBefore < 5;
+
+    if (window.lastOcrSnapshot) {
+      window.lastOcrSnapshot._exportAllowed = exportAllowed;
     }
 
-    // 2) Droit Save/Export (trial/pack/sub = OK, free/jour = NON)
-    const se = (typeof canSaveAndExport === "function")
-      ? canSaveAndExport()              // { ok:true, mode:"sub|pack|trial" } ou { ok:false }
-      : { ok: false };
+    // ✅ On consomme SEULEMENT ici (analyse OK)
+    consumeOcr();
 
-    // 3) Marquer l’autorisation d’export dans le snapshot
-    window.lastOcrSnapshot = window.lastOcrSnapshot || {};
-    window.lastOcrSnapshot._exportAllowed = !!se.ok;
-
-    // 4) Afficher / cacher le bloc Enregistrer (selon le droit, pas selon used.mode)
-    if (typeof setSaveSectionVisible === "function") {
-      setSaveSectionVisible(se.ok);
-    }
-
-    // 5) Mettre à jour les boutons PDF / Excel
-    if (typeof updateOcrExportButtons === "function") {
-      updateOcrExportButtons();
-    }
-
-    // 6) Rafraîchir UI
-    if (typeof refreshPricingUI === "function") {
-      refreshPricingUI();
-    }
-      
-
-    
-      
-    
- 
-    // ✅ OCR terminé avec succès → on consomme UNE SEULE FOIS
-     
+    // ✅ refresh boutons export
+    if (typeof updateOcrExportButtons === "function") updateOcrExportButtons();
 
     } catch (err) {
       console.error("ANALYSE ERROR:", err);
@@ -3637,9 +3060,18 @@ const rawSupplierLink =
   document.getElementById("supplier-link")?.value?.trim() || "";
 const saveMarginBtn = document.getElementById("margin-save-btn");
 const marginActionsEl = document.getElementById("margin-actions");
-
-  
-
+if (saveCostBtn) {
+  saveCostBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    saveCost();
+  });
+}
+if (saveMarginBtn) {
+  saveMarginBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    saveMargin();
+  });
+}
 
 // Champs produits
 const calcProductsTotal = document.getElementById("calc-products-total");
@@ -3806,7 +3238,7 @@ function addCalcHistoryItem(item) {
 }
 
 function renderCalcHistory() {
-  //alert("renderCalcHistory exécuté");
+  alert("renderCalcHistory exécuté");
   // alert("renderCalcHistory -> calcHistoryList = " + (calcHistoryList ? "OK" : "NULL"));
   if (!calcHistoryList) return;
 
@@ -3836,114 +3268,34 @@ function renderCalcHistory() {
     const date = item.date || "";
 
     // total formaté
-    const isMargin = item.type === "margin";
+    const rawTotal = typeof item.total === "number" ? item.total : 0;
+    const total = new Intl.NumberFormat("fr-FR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(rawTotal);
 
-    // lien fournisseur
+    // lien fournisseur (optionnel)
     let linkHtml = "";
     if (item.supplierLink) {
-      linkHtml = `
-        <a class="supplier-btn"
-           href="${item.supplierLink}"
-           target="_blank"
-           rel="noopener">
-           Voir le fournisseur
-        </a>`;
+      linkHtml =
+        '<a href="' +
+        item.supplierLink +
+        '" target="_blank" class="link-button">Voir le fournisseur</a>';
     }
 
-    // texte à droite (coût ou marge)
-    // format nombre (0 décimales)
-    const fmt = (v) =>
-      new Intl.NumberFormat("fr-FR", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(Number(v || 0));
+    div.innerHTML = `
+      <div class="history-main">
+        <div class="history-desc"><b>${supplier}</b></div>
+        <div class="history-desc">${product}</div>
+        ${linkHtml}
+      </div>
+      <div class="history-meta history-date">
+        ${date}<br />
+        <strong>${total} ${currency}</strong>
+      </div>
+    `;
 
-    // texte à droite (marge uniquement)
-    let rightText = "";
-
-    if (isMargin) {
-      rightText =
-        `${fmt(item.marginTotal)} ${currency}\n(${Number(item.marginRate || 0).toFixed(1)} %)`;
-    }
-
-    // ===============================
-// CONTENU PRINCIPAL
-// ===============================
-      div.innerHTML = `
-  <div class="history-main">
-    <div class="history-desc"><b>${supplier}</b></div>
-    <div class="history-desc">${product}</div>
-    ${linkHtml}
-  </div>
-
-  <div class="history-meta">
-    <div class="history-date">${date}</div>
-    <div class="history-total">${rightText}</div>
-  </div>
-`;
-
-// ===============================
-// DÉTAILS (COST + MARGIN)
-// ===============================
-const detailsDiv = document.createElement("div");
-
-// ✅ DÉTAILS POUR COST
-if (item.type === "cost") {
-  detailsDiv.innerHTML = `
-    <div class="history-details">
-      <div class="history-section-title">Détails du coût</div>
-      <div>Produits : ${fmt(item.productsTotal)} ${currency}</div>
-      <div>Livraison locale : ${fmt(item.localFees)} ${currency}</div>
-      <div>Transport international : ${fmt(item.shipping)} ${currency}</div>
-      <div>Total hors taxes : ${fmt(
-        (item.productsTotal || 0) +
-        (item.localFees || 0) +
-        (item.shipping || 0)
-      )} ${currency}</div>
-      <div>Taxes / douane : ${
-        item.taxesPct ? item.taxesPct + " %" : "non renseignées"
-      }</div>
-      <div><b>TOTAL FINAL : ${fmt(item.totalFinal)} ${currency}</b></div>
-    </div>
-  `;
-}
-
-// ✅ DÉTAILS POUR MARGIN (ton bloc actuel)
-if (item.type === "margin") {
-  detailsDiv.innerHTML = `
-    <div class="history-details">
-      <div class="history-section-title">Résultat du calcul</div>
-      <div>Produits : ${fmt(item.productsTotal)} ${currency}</div>
-      <div>Livraison locale : ${fmt(item.localFees)} ${currency}</div>
-      <div>Transport international : ${fmt(item.shipping)} ${currency}</div>
-      <div>Total hors taxes : ${fmt(
-        (item.productsTotal || 0) +
-        (item.localFees || 0) +
-        (item.shipping || 0)
-      )} ${currency}</div>
-      <div>Taxes / douane : ${
-        item.taxesPct ? item.taxesPct + " %" : "non renseignées"
-      }</div>
-      <div><b>TOTAL FINAL : ${fmt(item.totalFinal)} ${currency}</b></div>
-
-      <hr />
-
-      <div class="history-section-title">Résultat marge</div>
-      <div>Prix de vente (unité) : ${fmt(item.salePriceUnit)} ${currency}</div>
-      <div>Quantité : ${item.qty}</div>
-      <div>Coût unitaire : ${fmt(item.costUnit)} ${currency}</div>
-      <div>Marge unitaire : ${fmt(item.marginUnit)} ${currency}</div>
-      <div><b>Marge totale : ${fmt(item.marginTotal)} ${currency}</b></div>
-      <div><b>TAUX DE MARGE : ${Number(item.marginRate || 0).toFixed(1)} %</b></div>
-    </div>
-  `;
-}
-
-// ⬇️ TOUJOURS APRÈS innerHTML
-div.appendChild(detailsDiv);
-
-// ⬇️ TOUJOURS À LA FIN
-calcHistoryList.appendChild(div);
+    calcHistoryList.appendChild(div);
   });
 }
 
@@ -4016,7 +3368,7 @@ function resetCalculator() {
       return;
     }
 
-    
+    // le reste de TON code continue ici ↓↓↓
 
   const cur = (calcCurrency && calcCurrency.value
     ? calcCurrency.value.trim()
@@ -4038,7 +3390,7 @@ function resetCalculator() {
   }
 
   if (productsTotal <= 0) {
-    toast("Renseigne au moins un montant pour les produits (total ou prix unitaire + quantité).");
+    alert("Renseigne au moins un montant pour les produits (total ou prix unitaire + quantité).");
     return;
   }
 
@@ -4099,25 +3451,6 @@ function resetCalculator() {
     calcLineFinal.textContent = `TOTAL FINAL : ${fmt(finalTotal)} ${cur}`;
 
   calcResultEl.hidden = false;
-    // 📸 SNAPSHOT DU COÛT
-    
-
-    window.lastCostSnapshot = {
-      type: "cost",
-      date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString().slice(0,5),
-
-      supplierName: document.getElementById("calc-supplier-name")?.value?.trim() || "Fournisseur habituel",
-      productName: document.getElementById("calc-product-name")?.value?.trim() || "Sans nom",
-      supplierLink: document.getElementById("calc-supplier-link")?.value?.trim() || "",
-      currency: document.getElementById("calc-currency")?.value?.trim() || "XOF",
-
-      productsTotal,
-      localFees,
-      shipping,
-      taxesPct,
-      taxesAmount,
-      totalFinal: finalTotal
-    };
     
   //🔗 Active le calcul de marge
   let qtySuggested = 0;
@@ -4127,21 +3460,29 @@ function resetCalculator() {
 }
 
   onCostCalculated(finalTotal, cur, qtySuggested);
-  document.getElementById("cost-actions")?.removeAttribute("hidden");
-document.getElementById("cost-save-btn")?.removeAttribute("hidden");
-    
+
   // Historique calculs
   
   const now = new Date();
 const dateStr =
   now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0, 5);
 
+addCalcHistoryItem({
+    productName:  (calcProductName  && calcProductName.value.trim())  || "Sans nom",
+    supplierName: (calcSupplierName && calcSupplierName.value.trim()) || "Fournisseur habituel",
+    supplierLink: (calcSupplierLink && calcSupplierLink.value.trim()) || "",
+    currency: cur,
+    total: finalTotal,  
+  // clé "total" utilisée par renderCalcHistory
+    date: dateStr,
+  });
 
+    // ✅ Assure que l'objet existe (IMPORTANT)
+    window.lastSavedCalculation = window.lastSavedCalculation || {};
+    const lastSavedCalculation = window.lastSavedCalculation;
+
+    // ✅ Snapshot coût (pour PDF / Excel)
     window.lastCostSnapshot = {
-      supplierName: document.getElementById("calc-supplier-name")?.value?.trim() || "Fournisseur habituel",
-      productName: document.getElementById("calc-product-name")?.value?.trim() || "Sans nom",
-      supplierLink: document.getElementById("calc-supplier-link")?.value?.trim() || "",
-
       productsTotal,
       localFees,
       shipping,
@@ -4165,7 +3506,7 @@ const dateStr =
 
 // extrait uniquement l’URL si l’utilisateur colle un texte Alibaba
     const rawSupplierLink =
-      document.getElementById("calc-supplier-link")?.value?.trim() || "";
+      document.getElementById("supplier-link")?.value?.trim() || "";
 
     lastSavedCalculation.supplierLink =
       rawSupplierLink.match(/https?:\/\/[^\s]+/)?.[0] || "";
@@ -4215,7 +3556,13 @@ const marginAlertText = document.getElementById("margin-alert-text");
 const costSaveBtn = document.getElementById("cost-save-btn");
 
 
-
+if (saveMarginBtn) {
+  saveMarginBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    console.log("CLICK margin-save");
+    saveMargin();
+  });
+}
 
 
 function showMarginAlert(marginTotal, marginRate, costUnit, saleUnit){
@@ -4274,15 +3621,15 @@ if (marginRunBtn) {
     const qty = Math.max(0, Math.floor(toNum(saleQtyEl ? saleQtyEl.value : 0)));
 
     if (totalFinal <= 0) {
-        toast("Calcule d'abord le TOTAL FINAL.");
+      alert("Calcule d'abord le TOTAL FINAL.");
       return;
     }
     if (qty <= 0) {
-        toast("Renseigne la quantité (nombre de pièces).");
+      alert("Renseigne la quantité (nombre de pièces).");
       return;
     }
     if (salePriceUnit <= 0) {
-        toast("Renseigne le prix de vente unitaire.");
+      alert("Renseigne le prix de vente unitaire.");
       return;
     }
 
@@ -4308,7 +3655,6 @@ if (marginRunBtn) {
     if (lineMarginUnit) lineMarginUnit.textContent = `Marge unitaire : ${fmtMoney(marginUnit, currency)}`;
     if (lineMarginTotal)lineMarginTotal.textContent= `Marge totale : ${fmtMoney(marginTotal, currency)}`;
     if (lineMarginRate) lineMarginRate.textContent = `TAUX DE MARGE : ${marginRate.toFixed(1)} %`;
-    
     // ✅ Snapshot marge (pour PDF / Excel)
     window.lastMarginSnapshot = {
       salePriceUnit: salePriceUnit,
@@ -4352,147 +3698,28 @@ if (calcResetBtn) {
   });
 });
 
-function getCalcMeta() {
-  const supplierName = document.getElementById("calc-supplier-name")?.value?.trim() || "";
-  const productName  = document.getElementById("calc-product-name")?.value?.trim() || "";
-  const supplierLink = document.getElementById("calc-supplier-link")?.value?.trim() || "";
-  const currency     = document.getElementById("calc-currency")?.value?.trim() || "XOF";
-
-  return {
-    supplierName: supplierName || "Fournisseur inconnu",
-    productName: productName || "Sans nom de produit",
-    supplierLink,
-    currency
-  };
-}
-
-let lastToastAt = 0;
-
-function toast(message, ms = 2500) {
-  const now = Date.now();
-  if (now - lastToastAt < 400) return; // anti-spam léger
-  lastToastAt = now;
-
-  // supprime l'ancien
-  const old = document.getElementById("app-toast");
-  if (old) old.remove();
-
-  const el = document.createElement("div");
-  el.id = "app-toast";
-  el.textContent = message;
-
-  // STYLE DIRECT (visible partout)
-  el.style.position = "fixed";
-  el.style.left = "50%";
-  el.style.bottom = "24px";
-  el.style.transform = "translateX(-50%)";
-  el.style.zIndex = "99999";
-  el.style.background = "#e0f2fe"; // bleu clair
-  el.style.color = "#075985";      // texte bleu
-  el.style.padding = "12px 14px";
-  el.style.borderRadius = "14px";
-  el.style.fontSize = "14px";
-  el.style.fontWeight = "600";
-  el.style.maxWidth = "92vw";
-  el.style.textAlign = "center";
-  el.style.boxShadow = "0 10px 30px rgba(0,0,0,0.25)";
-  el.style.opacity = "0";
-  el.style.transition = "opacity 180ms ease";
-
-  document.body.appendChild(el);
-
-  // animation
-  requestAnimationFrame(() => {
-    el.style.opacity = "1";
-  });
-
-  setTimeout(() => {
-    el.style.opacity = "0";
-    setTimeout(() => el.remove(), 220);
-  }, ms);
-}
-
 function saveMargin() {
-  const access = canSaveAndExport();
-  if (!access.ok) {
-    toast("🔒 Sauvegarde réservée (pack ou abonnement).");
-    return;
-  }
-  if (!window.lastCostSnapshot || !window.lastMarginSnapshot) {
-      toast("Calcule le coût et la marge avant d’enregistrer.");
+  if (!lastMargin || !isFinite(lastMargin.marginTotal)) {
+    alert("Calcule d'abord la marge.");
     return;
   }
 
-  const c = window.lastCostSnapshot;
-  const m = window.lastMarginSnapshot;
-  const now = new Date();
+  const item = {
+    date: new Date().toLocaleString(),
+    currency: lastMargin.currency || "XOF",
+    costUnit: lastMargin.costUnit,
+    saleUnit: lastMargin.saleUnit,
+    marginTotal: lastMargin.marginTotal,
+    marginRate: lastMargin.marginRate,
+  };
 
-  addCalcHistoryItem({
-    type: "margin",
-    date: now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0,5),
+  const arr = loadMarginHistory();
+  arr.unshift(item);
+  if (arr.length > 30) arr.length = 30;
+  saveMarginHistory(arr);
 
-    supplierName: c.supplierName || "Fournisseur habituel",
-    productName: c.productName || "Sans nom",
-    supplierLink: c.supplierLink || "",
-    currency: c.currency || "XOF",
-
-    // coût
-    productsTotal: c.productsTotal,
-    localFees: c.localFees,
-    shipping: c.shipping,
-    taxesPct: c.taxesPct,
-    taxesAmount: c.taxesAmount,
-    totalFinal: c.totalFinal,
-
-    // marge
-    salePriceUnit: m.salePriceUnit,
-    qty: m.qty,
-    costUnit: m.costUnit,
-    marginUnit: m.marginUnit,
-    marginTotal: m.marginTotal,
-    marginRate: m.marginRate
-  });
-
-    toast("✅ Marge enregistrée avec détails");
-      consumeSaveExport(access.mode);
-    if (typeof refreshPricingUI === "function") refreshPricingUI();
-}
-
-function saveCost() {
-    const access = canSaveAndExport();
-    if (!access.ok) {
-      toast("🔒 Sauvegarde réservée (pack ou abonnement).");
-      return;
-    }
-  
-  if (!window.lastCostSnapshot) {
-    toast("Calcule le coût avant d’enregistrer.");
-    return;
-  }
-
-  const c = window.lastCostSnapshot;
-  const now = new Date();
-
-  addCalcHistoryItem({
-    type: "cost",
-    date: now.toLocaleDateString() + " " + now.toLocaleTimeString().slice(0,5),
-
-    supplierName: c.supplierName,
-    productName: c.productName,
-    supplierLink: c.supplierLink,
-    currency: c.currency,
-
-    productsTotal: c.productsTotal,
-    localFees: c.localFees,
-    shipping: c.shipping,
-    taxesPct: c.taxesPct,
-    taxesAmount: c.taxesAmount,
-    totalFinal: c.totalFinal
-  });
-
-    toast("✅ Coût enregistré");
-    consumeSaveExport(access.mode);
-    if (typeof refreshPricingUI === "function") refreshPricingUI();
+  //renderMarginHistory();
+  alert("✅ Marge enregistrée !");
 }
 
 
@@ -4509,10 +3736,75 @@ function saveMarginHistory(list) {
   localStorage.setItem(MARGIN_HISTORY_KEY, JSON.stringify(list || []));
 }
 
+// ===============================
+// ✅ HISTORIQUE COÛT (localStorage)
+// ===============================
+const COST_HISTORY_KEY = "costHistory";
 
-    
+function loadCostHistory() {
+  return JSON.parse(localStorage.getItem(COST_HISTORY_KEY) || "[]");
+}
 
-  
+function saveCostHistory(list) {
+  localStorage.setItem(COST_HISTORY_KEY, JSON.stringify(list || []));
+}
+
+function addCostHistoryItem(item) {
+  const list = loadCostHistory();
+  list.unshift(item); 
+  // ajoute au début
+  saveCostHistory(list);
+}
+
+function renderCostHistory() {
+  if (!costHistoryList) return;
+
+  const list = loadCostHistory();
+  costHistoryList.innerHTML = "";
+
+  if (!list.length) {
+    costHistoryList.innerHTML =
+      `<p class="history-empty">Aucun coût enregistré.</p>`;
+    return;
+  }
+
+  list.forEach(it => {
+    const div = document.createElement("div");
+    div.className = "history-item";
+
+    div.innerHTML = `
+      <div class="history-main">
+        <div class="history-desc">
+          <strong>${Math.round(it.totalFinal || 0).toLocaleString("fr-FR")} ${it.currency || ""}</strong>
+        </div>
+        <div class="history-meta">${it.date}</div>
+      </div>
+    `;
+
+    // 🔗 Bouton fournisseur
+    if (it.supplierLink) {
+      const supplierBtn = document.createElement("a");
+      supplierBtn.className = "supplier-btn";
+      supplierBtn.href = it.supplierLink;
+      supplierBtn.target = "_blank";
+      supplierBtn.rel = "noopener noreferrer";
+      supplierBtn.textContent = "🔗 Voir fournisseur";
+      div.appendChild(supplierBtn);
+    }
+
+    costHistoryList.appendChild(div);
+  });
+}
+
+    if (clearCostHistory) {
+  clearCostHistory.addEventListener("click", () => {
+    saveCostHistory([]);
+    renderCostHistory();
+  });
+}
+
+// Render au chargement
+renderCostHistory();
         
     
 
@@ -4585,8 +3877,6 @@ const screens = {
   "screen-calc":    document.getElementById("screen-calc"),
   "screen-conv":    document.getElementById("screen-conv"),
   "screen-tracking": document.getElementById("screen-tracking"),
-  
-  "screen-pricing": document.getElementById("screen-pricing"),
 };
 
 const menuButtons = document.querySelectorAll(".menu-btn");
@@ -4812,28 +4102,10 @@ if (trackingInput) {
 // --------------------------------------------------
 // Render au chargement
 
-  
 document.addEventListener("DOMContentLoaded", () => {
   renderCalcHistory();
+  renderCostHistory();
   renderHistory();
   showError("");
   setLoading(false);
-
-  const saveCostBtn = document.getElementById("cost-save-btn");
-  const saveMarginBtn = document.getElementById("margin-save-btn");
-
-  if (saveCostBtn) {
-    saveCostBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      saveCost();
-    });
-  }
-
-  if (saveMarginBtn) {
-    saveMarginBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      saveMargin();
-    });
-  }
 });
-

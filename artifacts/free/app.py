@@ -28,6 +28,25 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app = Flask(__name__)
 
 app.config["PROPAGATE_EXCEPTIONS"] = True
+============================================================
+
+ROUTES PAGES FRONT
+
+============================================================
+
+from flask import redirect  # si pas déjà importé
+
+@app.route("/", methods=["GET"])
+def home():
+return redirect("/image")
+
+@app.route("/image", methods=["GET"])
+def page_image():
+return render_template("index.html", page_mode="image")
+
+@app.route("/alibaba", methods=["GET"])
+def page_alibaba():
+return render_template("index.html", page_mode="alibaba")
 
 # ============================
 #   OPENAI VISION (optionnel)

@@ -2,153 +2,897 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>ProdyScan</title>
+  <title>Aliscan Pro - Analyse & Calcul de coût</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link
     rel="stylesheet"
     href="{{ url_for('static', filename='style.css') }}"
   />
 </head>
+
 <body>
   <div class="app">
+
+    <!-- ==========================
+         HEADER
+    =========================== -->
     <header class="app-header">
-      <div class="logo-circle">P</div>
-      <div>
-        <h1>ProdyScan</h1>
-        <!-- Texte d’accueil masqué -->
+      <div class="logo-circle">A</div>
+      <div class="header-texts">
+        <h1>Aliscan Pro</h1>
+        <p class="subtitle">
+          Analyse capture ALibaba, calcul de coût,conversion de devise et tracking.
+        </p>
       </div>
     </header>
 
+    <!-- ==========================
+         MAIN
+    =========================== -->
     <main class="app-main">
-      <!-- Bloc image -->
-      <section class="card">
-        <h2>1. Choisir ou prendre une photo</h2>
-        <p class="hint">
-          Utilise de préférence une photo bien cadrée du produit ou de son emballage.
-        </p>
 
-        <!-- Bouton que l’utilisateur clique -->
-        <button id="choose-btn" type="button" class="primary-btn">
-          Choisir / Prendre une photo
+      <!-- ==========================
+           MENU PRINCIPAL
+      =========================== -->
+      <div class="menu-wrapper">
+        <button id="menu-toggle" class="menu-toggle">
+          ☰ Menu
         </button>
 
-        <!-- Nom du fichier choisi -->
-        <p id="file-name" class="file-name">Aucune image sélectionnée</p>
+        <nav id="main-menu" class="main-menu menu-closed">
 
-        <!-- Input fichier caché : ouvre appareil photo / galerie -->
-        <input
-          id="file-input"
-          type="file"
-          accept="image/*"
-          hidden
-        />
+          <button class="menu-btn menu-btn-active" data-screen="screen-ocr">
+            📷 Analyse images
+          </button>
 
-        <!-- Aperçu de l’image choisie -->
-        <div id="preview-wrapper" class="preview-wrapper" hidden>
-          <img id="preview-img" alt="Aperçu de l’image choisie" />
-        </div>
-      </section>
+          <button class="menu-btn" data-screen="screen-calc">
+            💰 Calculateur de coût
+          </button>
 
-      <!-- Pays + boutique -->
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="country-select">Pays cible</label>
-          <select id="country-select">
-            <option value="global">🌍 Global</option>
-            <option value="civ">🇨🇮 Côte d’Ivoire</option>
-            <option value="sen">🇸🇳 Sénégal</option>
-            <option value="cmr">🇨🇲 Cameroun</option>
-            <option value="maroc">🇲🇦 Maroc</option>
-            <option value="tunisie">🇹🇳 Tunisie</option>
-            <option value="france">🇫🇷 France</option>
-            <option value="algerie">🇩🇿 Algérie</option>
-            <option value="mali">🇲🇱 Mali</option>
-          </select>
-        </div>
+          <button class="menu-btn" data-screen="screen-conv">
+            💱 Conversion de devise
+          </button>
 
-        <div class="form-group">
-          <label for="shop-select">Boutique / plateforme</label>
-          <select id="shop-select">
-            <!-- ⚠️ NOUVELLE OPTION : recherche dans ton catalogue local -->
-            <option value="local">🧠 Catalogue local (par image)</option>
-
-            <option value="google">🔍 Google (par défaut)</option>
-            <option value="jumia">🛒 Jumia</option>
-            <option value="amazon">📦 Amazon</option>
-            <option value="aliexpress">🛍 AliExpress</option>
-            <option value="ebay">🌀 eBay</option>
-            <option value="cdiscount">🇫🇷 Cdiscount</option>
-            <option value="alibaba">🏭 Alibaba</option>
-            <option value="custom">⭐ Boutique personnalisée (champ ci-dessous)</option>
-          </select>
-        </div>
-
-        <div class="form-group full-width">
-          <label for="custom-shop">
-            Boutique personnalisée (optionnel)
-            <span class="label-hint">
-              Exemple : <code>monshop.com</code> ou <code>boutiqueXYZ</code>
-            </span>
-          </label>
-          <input
-            id="custom-shop"
-            type="text"
-            placeholder="Nom ou domaine de ta boutique locale"
-          />
-        </div>
+          <button class="menu-btn" data-screen="screen-tracking">
+            📦 Tracking
+          </button>
+          <button class="menu-btn" data-screen="screen-pricing">
+  💎 Abonnements
+          </button>
+          
+        </nav>
       </div>
 
-      <!-- Bouton analyser -->
-      <div class="actions-row">
-        <button id="analyse-btn" class="primary">Analyser l’image</button>
-        <div id="loader" class="loader" hidden></div>
-        <p id="error-text" class="error-text" hidden></p>
-      </div>
 
-      <!-- Résultat -->
-      <section class="card" id="result-card" hidden>
-        <h2>Résultat de l’analyse</h2>
-
-        <p class="result-description" id="result-description">
-          Description du produit…
-        </p>
-
-        <div class="result-meta">
-          <span class="badge" id="result-shop">Boutique : -</span>
-          <span class="badge" id="result-country">Pays : -</span>
-          <span class="badge badge-soft" id="result-source">Source : -</span>
-        </div>
-
-        <!-- Zone catalogue local -->
-        <div id="local-results" class="local-results"></div>
-
-        <!-- Lien vers boutiques externes -->
-        <a id="result-link" href="#" target="_blank" class="result-link">
-          Voir les offres similaires 🔗
-        </a>
-      </section>
-  <!-- Historique --> 
-      <section class="card history-card">
-        <div class="history-header">
-          <h2>Historique récent</h2>
-          <button id="clear-history" class="link-button">Effacer</button>
-        </div>
-        <div id="history-list" class="history-list empty">
-          <p class="history-empty">
-            Aucune analyse encore. Lance ta première vérification 👇
+      <!-- ÉCRAN : Abonnement -->
+      <section id="screen-pricing" class="screen" hidden>
+        <div class="card">
+          <h2>💎 Abonnements</h2>
+          <p style="margin-top:6px; opacity:.85;">
+            Choisis ton offre. Les packs se cumulent et n’expirent pas.
           </p>
+
+          <!-- STATUT -->
+          <div class="card" style="margin-top:14px;">
+            <h3 style="margin:0 0 10px;">📊 Ton statut</h3>
+            <div class="grid-2">
+              <div class="pill">Plan : <b id="st-plan">—</b></div>
+              <div class="pill">Essai restant : <b id="st-trial">—</b></div>
+              <div class="pill">Pack crédits : <b id="st-packCredits">—</b></div>
+              <div class="pill">Pack saves : <b id="st-packSaves">—</b></div>
+              <div class="pill">Free/jour restant : <b id="st-freeLeft">—</b></div>
+              <div class="pill">Abonnement jusqu’au : <b id="st-subUntil">—</b></div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button id="pricing-refresh" class="btn-secondary">🔄 Rafraîchir</button>
+              <button id="pricing-reset" class="btn-secondary">♻️ Reset test</button>
+            </div>
+          </div>
+
+          <!-- OFFRES -->
+          <div class="pricing-grid" style="margin-top:14px; display:grid; gap:14px;">
+            <!-- GRATUIT -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">🆓 Gratuit</h3>
+                <span id="badge-free" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <ul class="list">
+                <li>✅ Tracking + conversion Google</li>
+                <li>✅ Calcul coût & marge</li>
+                <li>❌ Sauvegarde / Historique</li>
+                <li>❌ Export PDF/Excel</li>
+              </ul>
+              <div class="note">Après l’essai : 3 analyses / jour, sans sauvegarde/export.</div>
+            </div>
+
+            <!-- ESSAI -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">🎁 Essai</h3>
+                <span id="badge-trial" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <ul class="list">
+                <li>✅ 5 analyses gratuites</li>
+                <li>✅ Sauvegarde + Export OK</li>
+              </ul>
+              <div class="note">Une fois terminé → Free quotidien (3/jour, sans save/export).</div>
+            </div>
+
+            <!-- PACK 10 -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">📦 Pack 10</h3>
+                <span id="badge-pack10" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <div style="font-size:18px; font-weight:800;">100 FCFA</div>
+              <ul class="list">
+                <li>✅ 10 analyses</li>
+                <li>✅ 10 enregistrements</li>
+                <li>✅ Export PDF/Excel</li>
+                <li>✅ Analyse capture + coût&marge</li>
+              </ul>
+              <button id="buy-pack-10" class="btn-primary" style="width:100%;">Acheter Pack 10</button>
+            </div>
+
+            <!-- PACK 100 -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">📦 Pack 100</h3>
+                <span id="badge-pack100" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <div style="font-size:18px; font-weight:800;">500 FCFA</div>
+              <ul class="list">
+                <li>✅ 100 analyses</li>
+                <li>✅ 100 enregistrements</li>
+                <li>✅ Export PDF/Excel</li>
+                <li>✅ Analyse capture + coût&marge</li>
+              </ul>
+              <button id="buy-pack-100" class="btn-primary" style="width:100%;">Acheter Pack 100</button>
+            </div>
+
+            <!-- ABONNEMENT -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">💎 Pro</h3>
+                <span id="badge-pro" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <ul class="list">
+                <li>✅ Analyses illimitées</li>
+                <li>✅ Sauvegarde illimitée</li>
+                <li>✅ Export illimité</li>
+              </ul>
+
+              <div style="display:grid; gap:10px; margin-top:10px;">
+                <button id="buy-pro-month" class="btn-primary">Activer Mensuel — 1000 FCFA/mois</button>
+                <button id="buy-pro-year" class="btn-primary">Activer Annuel — 10 000 FCFA/an</button>
+                <button id="cancel-pro" class="btn-secondary" hidden>
+  Se désabonner (revenir au gratuit)
+                </button>
+              </div>
+
+              <div class="note" style="margin-top:10px;">
+                Si l’abonnement expire : retour en mode Free/Packs (tes packs restent).
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-    </main>
 
-    <footer class="app-footer">
-      <small>
-        ProdyScan • Analyse d’images avec OCR
-        {% if has_openai %} + OpenAI Vision{% else %}(Vision désactivée){% endif %}
-      </small>
-    </footer>
+
+      
+      <!-- ÉCRAN : TRACKING -->
+      <section id="screen-tracking" class="screen" hidden>
+
+        <h2>📦 Suivi de commande</h2>
+        <p>Colle ton numéro de suivi :</p>
+
+        <!-- Champ + bouton -->
+        <div class="tracking-row">
+          <input 
+            id="tracking-input"
+            type="text"
+            placeholder="Ex : 112365084955"
+            class="tracking-input"
+          />
+
+          <button id="tracking-btn" class="primary-btn">
+            Rechercher
+          </button>
+        </div>
+
+        <!-- Résultat -->
+        <div id="tracking-result" class="result" hidden></div>
+
+        <!-- Historique -->
+        <div id="tracking-history" class="tracking-history" hidden>
+
+          <div class="history-header">
+            <h3>📚 Historique des recherches</h3>
+
+            <!-- Bouton reset historique -->
+            <button id="tracking-clear" class="ghost-btn">
+              🗑️ RAZ Historique
+            </button>
+          </div>
+
+          <div id="tracking-history-list" class="history-list">
+            <!-- Liste ajoutée en JS -->
+          </div>
+
+        </div>
+
+      </section> 
+ <!-- ==========================
+     ÉCRAN : ANALYSE IMAGES (OCR)
+=========================== -->
+<section id="screen-ocr" class="screen" hidden>
+
+  <!-- ======================================
+       CARTE : ANALYSE PAR CAPTURE / PHOTO
+  ======================================= -->
+  <section class="card">
+
+    <h2 class="card-title">Analyse d'une capture</h2>
+
+    <p class="hint small">
+      Import une capture d'écran Alibaba (produit, certificat ou profil fournisseur).<br>
+      L’app va lire automatiquement le texte de l’image.
+    </p>
+
+    <div class="form-group">
+      <input id="ocr-input"
+         type="file"
+         accept="image/*"
+         multiple
+         class="primary-input" />
+    </div>
+
+     <p class="hint small">
+  Importer 1 à 5 captures du <strong>même fournisseur</strong> (profil, certificats, avis).<br>
+  ⚠️ Évite de mélanger plusieurs vendeurs pour un résultat fiable.
+     </p>
+    
+    <div class="actions-row">
+      <button id="ocr-btn" class="primary-btn">Analyser images</button>
+    <!-- Lien optionnel (avant analyse) -->
+
+
+
+    </div>
+
+    <p id="ocr-status" class="hint small"></p>
+    <div id="pro-card" class="pro-card" hidden>
+  <div class="pro-head">
+    <div class="pro-title">Résultat analyse</div>
+    <span id="pro-badge" class="badge">—</span>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <div class="score-row">
+    <div class="score-left">
+      <div class="score-value"><span id="pro-score">0</span><span class="muted">/100</span></div>
+      <div id="pro-level" class="score-level">—</div>
+    </div>
+    <div class="score-bar">
+      <div id="pro-bar" class="score-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="pro-grid">
+    <div class="pro-item">
+      <div class="k">Fournisseur</div>
+      <div id="pro-name" class="v">—</div>
+    </div>
+    <div class="pro-item">
+      <div class="k">Pays</div>
+      <div id="pro-country" class="v">—</div>
+    </div>
+    <div class="pro-item">
+      <div class="k">Livraison</div>
+      <div id="pro-delivery" class="v">—</div>
+    </div>
+    <div class="pro-item">
+      <div class="k">Avis</div>
+      <div id="pro-rating" class="v">—</div>
+    </div>
+  </div>
+
+  <div class="pro-section">
+    <div class="sec-title">Détails du score</div>
+    <ul id="pro-details" class="details-list"></ul>
+  </div>
+
+  <div class="pro-section">
+    <div class="sec-title">Badges</div>
+    <div id="pro-tags" class="tags"></div>
+  </div>
+    </div>
+    
+    
+    <pre id="ocr-resume" class="info-line small" style="white-space:pre-wrap;"></pre>
+
+    <button id="toggle-ocr-btn" type="button" class="link-button" style="margin-bottom:6px;" hidden>
+      📄 Voir le texte brut
+    </button>
+
+    <pre id="ocr-raw" class="info-line small" style="white-space:pre-wrap;" hidden></pre>
+
+    <hr class="divider" />
+    <!-- =========================
+         OCR - ENREGISTREMENT
+         (à mettre sous #ocr-raw)
+    ========================= -->
+
+    <!-- Bloc Enregistrer (affiché après analyse) -->
+    <div id="ocr-save-wrap" class="info-block" hidden>
+      <div class="info-block-header">
+        <span class="info-icon">📝</span>
+        <h3>Enregistrer cette analyse</h3>
+      </div>
+
+      <div class="form-group">
+        <label for="ocr-link-input">Lien produit / fournisseur (optionnel)</label>
+        <input
+          id="ocr-link-input"
+          class="primary-input"
+          type="text"
+          placeholder="Colle le lien du produit: l'app récupère le lien à l'intérieur"
+        />
+        <p class="hint small">
+          Colle le lien ici pour ne pas perdre la page du fournisseur.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="ocr-note">Bloc note (optionnel)</label>
+        <textarea
+          id="ocr-note"
+          class="primary-input"
+          rows="4"
+          placeholder="Notes personnelles sur ce fournisseur..."
+        ></textarea>
+      </div>
+
+      <div class="actions-row">
+        <button id="ocr-save-btn" class="primary-btn" type="button">💾 Enregistrer</button>
+
+  <!-- ✅ Export (affichés seulement si PDF/Excel disponibles) -->
+  <button id="ocr-export-pdf-btn" class="secondary-btn" type="button" hidden>📄 Export PDF</button>
+  <button id="ocr-export-xls-btn" class="secondary-btn" type="button" hidden>📊 Export Excel</button>
+      
+     </div>
+      
+      
+      <p id="ocr-save-msg" class="hint small"></p>
+    </div>
+
+    <!-- Liste des analyses enregistrées -->
+    <section class="card history-card" style="margin-top:16px;">
+      <div class="history-header">
+        <h2>📌 Analyses enregistrées</h2>
+        <button id="ocr-clear-btn" class="link-button" type="button">🧹 Effacer</button>
+      </div>
+      <div id="ocr-records-list" class="history-list empty"></div>
+    </section> 
+  </section> 
+</section>     <!-- ✅ ferme l’écran OCR (section id="screen-ocr") -->
+    
+      
+            
+
+  
+             
+
+      <!-- ==========================
+           ÉCRAN 2 : CALCULATEUR DE COÛT
+      =========================== -->
+      <section id="screen-calc" class="screen" hidden>
+
+        <!-- Carte calculateur -->
+        <section class="card calc-card">
+          <h2 class="card-title">Calculateur de coût</h2>
+          <p class="hint">
+            Choisis une seule devise (XOF, USD, EUR…). 
+            <strong>Tous les montants doivent être saisis dans cette même devise.</strong>
+          </p>
+
+          <!-- Infos optionnelles -->
+          <div class="form-row">
+            <div class="form-group">
+              <label for="calc-product-name">Nom du produit (optionnel)</label>
+              <input
+                id="calc-product-name"
+                type="text"
+                class="primary-input"
+                placeholder="Ex : Casque Bluetooth"
+              />
+            </div>
+            <div class="form-group">
+              <label for="calc-supplier-name">Nom du fournisseur (optionnel)</label>
+              <input
+                id="calc-supplier-name"
+                type="text"
+                class="primary-input"
+                placeholder="Ex : Fournisseur habituel"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="calc-supplier-link">Lien du fournisseur (optionnel)</label>
+            <input
+              id="calc-supplier-link"
+              type="text"
+              class="primary-input"
+              placeholder="https://exemple.com/boutique"
+            />
+            <p class="hint small">
+              Si tu renseignes ce champ, le lien sera cliquable dans l’historique des calculs.
+            </p>
+          </div>
+
+          <!-- Devise -->
+          <div class="form-group">
+            <label for="calc-currency">Devise utilisée</label>
+            <input
+              id="calc-currency"
+              type="text"
+              class="primary-input"
+              value="XOF"
+            />
+            <p class="hint small">Ex : XOF, USD, EUR, NGN…</p>
+            <p id="calc-currency-info" class="hint small">
+              Tous les montants ci-dessous doivent être saisis en XOF.
+            </p>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- PRODUITS -->
+          <h3 class="section-subtitle">Produits</h3>
+
+          <!-- Sélecteur de mode -->
+          <div class="form-group">
+            <label>Mode de calcul</label>
+            <div class="radio-row calc-mode-row">
+              <label>
+                <input type="radio" name="calc-mode" value="total" checked />
+                Montant total fournisseur
+              </label>
+              <label>
+                <input type="radio" name="calc-mode" value="detail" />
+                Prix unitaire + quantité
+              </label>
+            </div>
+          </div>
+
+          <!-- MODE A : Montant total -->
+          <div id="calc-mode-total" class="calc-mode-panel">
+            <div class="form-group">
+              <label for="calc-products-total">
+                Montant total donné par le fournisseur
+              </label>
+              <input
+                id="calc-products-total"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 200 000"
+              />
+              <p class="hint small">
+                Utilise ce mode si ton fournisseur te donne un seul montant global.
+                Laisse livraison locale et transport à 0 si tout est déjà inclus.
+              </p>
+            </div>
+          </div>
+
+          <!-- MODE B : Prix unitaire + quantité -->
+          <div id="calc-mode-detail" class="calc-mode-panel" hidden>
+            <p class="hint small">
+              Ici tu décomposes : prix d’une pièce × quantité.
+            </p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="calc-price-unit">Prix unitaire</label>
+                <input
+                  id="calc-price-unit"
+                  type="number"
+                  step="0.01"
+                  class="primary-input"
+                  placeholder="Ex : 2 500"
+                />
+              </div>
+              <div class="form-group">
+                <label for="calc-qty">Quantité</label>
+                <input
+                  id="calc-qty"
+                  type="number"
+                  step="1"
+                  class="primary-input"
+                  placeholder="Ex : 200"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Livraison locale -->
+          <h3 class="section-subtitle">Livraison locale</h3>
+          <div class="form-group">
+            <label for="calc-local-delivery">
+              Fournisseur → Transporteur(optionnel)
+            </label>
+            <input
+              id="calc-local-delivery"
+              type="number"
+              step="0.01"
+              class="primary-input"
+              placeholder="Ex : 25 000"
+            />
+          </div>
+
+          <!-- Transport international -->
+          <h3 class="section-subtitle">Transport international</h3>
+          <div class="form-group">
+            <label>Mode de transport</label>
+            <div class="radio-row">
+              <label>
+                <input type="radio" name="calc-ship-mode" value="kg" checked />
+                Par kg
+              </label>
+              <label>
+                <input type="radio" name="calc-ship-mode" value="cbm" />
+                Par CBM
+              </label>
+              <label>
+                <input type="radio" name="calc-ship-mode" value="fixe" />
+                Montant fixe
+              </label>
+            </div>
+          </div>
+
+          <div id="calc-ship-kg" class="form-row">
+            <div class="form-group">
+              <label for="calc-price-per-kg">Transport (par kg)</label>
+              <input
+                id="calc-price-per-kg"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 2 500"
+              />
+            </div>
+            <div class="form-group">
+              <label for="calc-weight-kg">Poids total (kg)</label>
+              <input
+                id="calc-weight-kg"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 120"
+              />
+            </div>
+          </div>
+
+          <div id="calc-ship-cbm" class="form-row" style="display: none;">
+            <div class="form-group">
+              <label for="calc-price-per-cbm">Transport (par CBM)</label>
+              <input
+                id="calc-price-per-cbm"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 150 000"
+              />
+            </div>
+            <div class="form-group">
+              <label for="calc-volume-cbm">Volume total (CBM)</label>
+              <input
+                id="calc-volume-cbm"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 1.8"
+              />
+            </div>
+          </div>
+
+          <div id="calc-ship-fixe" class="form-row" style="display: none;">
+            <div class="form-group">
+              <label for="calc-ship-fixed">Montant fixe</label>
+              <input
+                id="calc-ship-fixed"
+                type="number"
+                step="0.01"
+                class="primary-input"
+                placeholder="Ex : 720 000"
+              />
+            </div>
+          </div>
+
+          <!-- Taxes -->
+          <h3 class="section-subtitle">Taxes / Douane</h3>
+
+          <div class="form-group">
+            <label for="calc-taxes">Taxes (%)</label>
+            <input
+              id="calc-taxes"
+              type="number"
+              step="0.01"
+              min="0"
+              class="primary-input"
+              placeholder="Ex : 30 (optionnel)"
+            />
+            <p class="hint small">
+              Laisse vide si aucune taxe ou douane ne s’applique.
+            </p>
+          </div>
+
+          <!-- Boutons actions -->
+          <div class="actions-row">
+            <button id="calc-run" type="button" class="primary-btn">
+              💰 Calculer le total
+            </button>
+            <button id="calc-reset" type="button" class="secondary-btn">
+              ♻️ Remise à zéro
+            </button>
+          </div>
+          
+
+          <!-- Résultat -->
+          <div id="calc-result" class="calc-result" hidden>
+            <h3>Résultat du calcul</h3>
+            
+            <p id="calc-line-products"></p>
+            <p id="calc-line-local"></p>
+            <p id="calc-line-shipping"></p>
+            <p id="calc-line-total-local"></p>
+            <p id="calc-line-taxes"></p>
+            <p id="calc-line-final" class="calc-total-final"></p>
+          </div>
+        
+            <div class="actions-row" id="cost-actions" hidden>
+              <button id="cost-save-btn" class="primary-btn" type="button">💾 Enregistrer</button>
+              <button id="cost-export-pdf-btn" class="secondary-btn" type="button" hidden>📄 Export PDF</button>
+              <button id="cost-export-xls-btn" class="secondary-btn" type="button" hidden>📊 Export Excel</button>
+            </div>
+
+            <p id="cost-save-msg" class="hint small"></p>
+          </section> <!-- ✅ ferme la card calc-card -->
+          
+          <!-- (OPTIONNEL) supprime ce doublon, tu as déjà margin-save-msg plus bas -->
+          <!-- <p id="margin-save-msg" class="hint small"></p> -->
+       <!-- ==========================
+     BLOC CALCUL DE MARGE
+========================== -->
+<div id="margin-box" class="calc-result" hidden>
+
+  <h3>Calcul de marge</h3>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="sale-price-unit">Prix de vente unitaire</label>
+      <input
+        id="sale-price-unit"
+        type="number"
+        step="0.01"
+        class="primary-input"
+        placeholder="Ex : 2500"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="sale-qty">Quantité (pièces)</label>
+      <input
+        id="sale-qty"
+        type="number"
+        step="1"
+        class="primary-input"
+        placeholder="Ex : 100"
+      />
+    </div>
+  </div>
+
+  <!-- ✅ Bouton calcul marge -->
+  <div class="actions-row">
+    <button
+      id="margin-run"
+      type="button"
+      class="primary-btn"
+    >
+      📈 Calculer la marge
+    </button>
+  </div>
+
+  <!-- ✅ Boutons actions marge (cachés au départ) -->
+  <div class="actions-row" id="margin-actions" hidden>
+    <button
+      id="margin-save-btn"
+      class="primary-btn"
+      type="button"
+    >
+      💾 Enregistrer
+    </button>
+
+    <button
+      id="margin-export-pdf-btn"
+      class="secondary-btn"
+      type="button"
+      hidden
+    >
+      📄 Export PDF
+    </button>
+
+    <button
+      id="margin-export-xls-btn"
+      class="secondary-btn"
+      type="button"
+      hidden
+    >
+      📊 Export Excel
+    </button>
+  </div>
+
+  <p id="margin-save-msg" class="hint small"></p>
+
+  <!-- Alerte marge (gain / perte) -->
+  <div id="margin-alert" class="margin-alert" hidden>
+    <strong id="margin-alert-title"></strong>
+    <div id="margin-alert-text" class="small"></div>
+  </div>
+  <!-- Résultat marge -->
+  <div id="margin-result" style="margin-top:10px;" hidden>
+    <p id="line-cost-unit"></p>
+    <p id="line-margin-unit"></p>
+    <p id="line-margin-total"></p>
+    <p id="line-margin-rate" class="calc-total-final"></p>
+  </div>
+ </div> <!-- fin de #margin-box -->
+
+  <hr class="divider" />
+
+  <section class="card history-card">
+    <div class="history-header">
+      <h3>📜 Historique des calculs</h3>
+
+      <button id="clear-calc-history"
+              type="button"
+              class="ghost-btn danger">
+        🗑️ Vider
+      </button>
+    </div>
+
+    <div id="calc-history-list" class="history-list empty"></div>
+  </section>
+      </section>
+
+      <!-- ==========================
+           ÉCRAN 3 : CONVERTISSEUR GOOGLE
+      =========================== -->
+      <section id="screen-conv" class="screen" hidden>
+        <section class="card calc-card">
+          <h2 class="card-title">Conversion de devise (Google)</h2>
+          <p class="hint">
+            Entre un montant, la devise de départ et la devise d’arrivée.
+            Google ouvrira directement la conversion.
+          </p>
+
+          <!-- Montant -->
+          <div class="form-group">
+            <label for="google-amount">Montant à convertir</label>
+            <input
+              id="google-amount"
+              type="number"
+              step="0.01"
+              class="primary-input"
+              placeholder="Ex : 250"
+              value="1"
+            />
+          </div>
+
+          <div class="form-row">
+            <!-- Devise de départ -->
+            <div class="form-group">
+              <label for="google-from">Devise de départ</label>
+              <input
+                id="google-from"
+                type="text"
+                class="primary-input"
+                list="currency-list"
+                value="USD"
+                placeholder="Ex : USD"
+              />
+              <p class="hint small">Ex : USD, CNY, EUR…</p>
+            </div>
+
+            <!-- Devise d’arrivée -->
+            <div class="form-group">
+              <label for="google-to">Devise d’arrivée</label>
+              <input
+                id="google-to"
+                type="text"
+                class="primary-input"
+                list="currency-list"
+                value="XOF"
+                placeholder="Ex : XOF"
+              />
+              <p class="hint small">Ex : XOF, NGN, EUR…</p>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button id="google-rate-btn" class="google-rate-btn">
+              🔎 Voir le taux sur Google
+            </button>
+          </div>
+            <button id="google-swap" class="secondary-btn" style="margin-top:10px;">
+  🔄 Inverser les devises
+            </button>
+          
+          <!-- Liste déroulante filtrable de devises -->
+          <datalist id="currency-list">
+            <!-- Tu peux en ajouter / enlever -->
+            <option value="USD">Dollar américain (USD)</option>
+            <option value="EUR">Euro (EUR)</option>
+            <option value="XOF">Franc CFA (XOF)</option>
+            <option value="XAF">Franc CFA CEMAC (XAF)</option>
+            <option value="CNY">Yuan chinois (CNY)</option>
+            <option value="GBP">Livre sterling (GBP)</option>
+            <option value="NGN">Naira nigérian (NGN)</option>
+            <option value="GHS">Cedi ghanéen (GHS)</option>
+            <option value="CAD">Dollar canadien (CAD)</option>
+            <option value="AUD">Dollar australien (AUD)</option>
+            <option value="JPY">Yen japonais (JPY)</option>
+            <option value="ZAR">Rand sud-africain (ZAR)</option>
+            <!-- etc... -->
+          </datalist>
+        </section>
+      </section>
+              
+                    
+
+    </main>
+
+    <!-- ==========================
+         FOOTER
+    =========================== -->
+    <footer class="app-footer">
+      <small>Aliscan Pro • Analyse de lien, calcul de coût & conversion de devise,tracking</small>
+    </footer>
+    <!-- Mini bouton Alibaba (toujours visible) -->
+    <button id="mini-alibaba-btn" class="mini-fab" type="button" title="Ouvrir Alibaba">
+  Alibaba
+    </button>
+  </div>
+  <!-- OCR -->
+  <script src="https://unpkg.com/tesseract.js@4.1.4/dist/tesseract.min.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- TON JS PRINCIPAL  -->
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+
+<!-- MODAL : Pack pour qui ? 
+<div id="recipient-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h3>Pack pour qui ?</h3>
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button id="recipient-self" class="btn-primary" style="flex:1;">
+        Moi
+      </button>
+
+      <button id="recipient-friend" class="btn-secondary" style="flex:1;">
+        Ami
+      </button>
+    </div>
+  </div>
+</div>  -->
+
 </body>
 </html>
+

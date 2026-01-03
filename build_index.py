@@ -1,106 +1,164 @@
-import os
 import json
-import io
-
+import os
 import numpy as np
 import faiss
 import requests
 from PIL import Image
-
+from io import BytesIO
 from engines.free_embedder import FreeEmbedder
 
-# ⚙️ Même chemins que dans app.py
-CATALOG_FILE = "./data/catalog.json"
-ARTIFACT_DIR = "./artifacts/free"
+CATALOG_PATH = "data/catalog.json"
 
-EMB_FILE = os.path.join(ARTIFACT_DIR, "embeddings.npy")
-FAISS_FILE = os.path.join(ARTIFACT_DIR, "index.faiss")
-IDS_FILE = os.path.join(ARTIFACT_DIR, "ids.json")
+# ⚠️ IMPORTANT :
+# - TON app.py utilise encore artifacts/free  -> téléphones
+# - On ajoute artifacts/accessoires        -> accessoires
+ART_DIR_PHONES = "artifacts/free"
+ART_DIR_ACCESS = "artifacts/accessoires"
 
-os.makedirs(ARTIFACT_DIR, exist_ok=True)
+os.makedirs(ART_DIR_PHONES, exist_ok=True)
+os.makedirs(ART_DIR_ACCESS, exist_ok=True)
+
+
+def download_and_convert(url):
+    """Télécharge l'image et la convertit en Image PIL"""
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        return img
+    except Exception as e:
+        print("Erreur image :", e)
+        return None
+
+
+def is_accessory(product: dict) -> bool:
+    """
+    Heuristique simple pour distinguer accessoires / téléphones
+    (basé sur le titre du produit).
+    """
+    title = (product.get("title") or "").lower()
+
+    KEYWORDS_ACCESS = [
+        "coque",
+        "housse",
+        "étui",
+        "etui",
+        "case",
+        "cover",
+        "verre trempé",
+        "verre trempe",
+        "film",
+        "glass",
+        "protecteur",
+        "protection écran",
+        "protection ecran",
+        "chargeur",
+        "charge rapide",
+        "câble",
+        "cable",
+        "écouteur",
+        "ecouteur",
+        "écouteurs",
+        "ecouteurs",
+        "earphone",
+        "earphones",
+        "earbud",
+        "earbuds",
+        "power bank",
+    ]
+
+    return any(kw in title for kw in KEYWORDS_ACCESS)
+
+
+def save_index(vectors, ids, art_dir):
+    """
+    Sauvegarde embeddings + ids + index.faiss dans un dossier donné.
+    """
+    if not vectors:
+        print(f"⚠ Aucun embedding pour {art_dir} → index vide.")
+        embedding_dim = 512
+        empty = np.zeros((0, embedding_dim), dtype="float32")
+        index = faiss.IndexFlatL2(embedding_dim)
+        faiss.write_index(index, os.path.join(art_dir, "index.faiss"))
+        np.save(os.path.join(art_dir, "embeddings.npy"), empty)
+        with open(os.path.join(art_dir, "ids.json"), "w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False)
+        return
+
+    vectors = np.stack(vectors).astype("float32")
+    np.save(os.path.join(art_dir, "embeddings.npy"), vectors)
+
+    with open(os.path.join(art_dir, "ids.json"), "w", encoding="utf-8") as f:
+        json.dump(ids, f, ensure_ascii=False)
+
+    index = faiss.IndexFlatL2(vectors.shape[1])
+    index.add(vectors)
+    faiss.write_index(index, os.path.join(art_dir, "index.faiss"))
+
+    print(f"✅ Index sauvegardé dans {art_dir} ({len(ids)} produits)")
 
 
 def main():
-    # 1) Charger le catalogue
-    print("Chargement du catalogue :", CATALOG_FILE)
-    with open(CATALOG_FILE, "r", encoding="utf-8") as f:
+    print(f"Chargement du catalogue : {CATALOG_PATH}")
+    with open(CATALOG_PATH, "r", encoding="utf-8") as f:
         catalog = json.load(f)
 
-    print(f"➡ {len(catalog)} produits dans le catalogue")
+    print(f"→ {len(catalog)} produits dans le catalogue")
 
-    # 2) Initialiser l'embedder CLIP
-    print("Initialisation de FreeEmbedder...")
+    # Filtrage des produits actifs (avec image_url non vide)
+    catalog = [p for p in catalog if "image_url" in p and p["image_url"]]
+    print(f"✨ Filtrage : {len(catalog)} produits avec image")
+
+    if len(catalog) == 0:
+        print("⚠ Aucun produit actif → création d'index vides.")
+        save_index([], [], ART_DIR_PHONES)
+        save_index([], [], ART_DIR_ACCESS)
+        return
+
+    print("Initialisation FreeEmbedder…")
     embedder = FreeEmbedder()
 
-    vecs = []
-    faiss_items = []  # ici on stocke les DICTS produits, pas seulement l'id
+    # Deux jeux d'index : téléphones vs accessoires
+    phone_vectors = []
+    phone_ids = []
+    access_vectors = []
+    access_ids = []
 
-    # 3) Boucle sur les produits et téléchargement des images
-    for p in catalog:
-        pid = str(p.get("id"))
-        img_url = p.get("image_url")
-
-        if not pid or not img_url:
-            print("⏭ Produit sans id ou sans image, ignoré :", p)
+    for i, product in enumerate(catalog, start=1):
+        img = download_and_convert(product["image_url"])
+        if img is None:
             continue
 
         try:
-            print(f"📥 Produit {pid} - téléchargement de l'image...")
-            resp = requests.get(img_url, timeout=20)
-            resp.raise_for_status()
-
-            img = Image.open(io.BytesIO(resp.content)).convert("RGB")
-
-            # 4) Embedding de l'image
-            vec = embedder.embed_image(img)
-            vec = np.array(vec, dtype="float32")
-            if vec.ndim == 1:
-                vec = vec[np.newaxis, :]
-
-            vecs.append(vec)
-
-            # on stocke une copie "propre" du produit pour l'API
-            prod_copy = dict(p)
-            prod_copy["id"] = pid  # on force l'id en string
-            faiss_items.append(prod_copy)
-
-            print(f"✅ OK pour le produit {pid}")
-
+            vec = embedder.embed_image(img)  # (512,) ou (1,512)
+            vec = np.array(vec).astype("float32")
+            if vec.ndim == 2:
+                vec = vec[0]
         except Exception as e:
-            print(f"⚠️ Erreur pour le produit {pid} ({img_url}) :", e)
+            print("Erreur embedding :", e)
+            continue
 
-    if not vecs:
-        raise RuntimeError("Aucun vecteur généré. Vérifie les URLs d'images.")
+        if is_accessory(product):
+            access_vectors.append(vec)
+            access_ids.append(product)
+        else:
+            phone_vectors.append(vec)
+            phone_ids.append(product)
 
-    # 5) Empiler tous les vecteurs
-    embeddings = np.concatenate(vecs, axis=0)
-    print("Tenseur final embeddings :", embeddings.shape)
+        if i % 100 == 0:
+            print(f"→ {i} produits traités…")
 
-    # 🔍 DEBUG : afficher un aperçu du 1er embedding
-    print("➡ Exemple d'embedding :", embeddings[0][:20])
+    print("------ RÉCAP ------")
+    print(f"Téléphones :  {len(phone_ids)}")
+    print(f"Accessoires : {len(access_ids)}")
 
-    # 6) Sauvegarde des embeddings
-    np.save(EMB_FILE, embeddings)
-    print("💾 embeddings sauvegardés dans", EMB_FILE)
+    print("\n💾 Sauvegarde index TÉLÉPHONES (utilisé par app.py)…")
+    save_index(phone_vectors, phone_ids, ART_DIR_PHONES)
 
-    # 7) Construction de l'index FAISS
-    print("📦 Construction de l'index FAISS…")
-    embeddings = embeddings.astype("float32")
-    d = embeddings.shape[1]
+    print("\n💾 Sauvegarde index ACCESSOIRES…")
+    save_index(access_vectors, access_ids, ART_DIR_ACCESS)
 
-    index = faiss.IndexFlatL2(d)
-    index.add(embeddings)
-
-    faiss.write_index(index, FAISS_FILE)
-    print("💾 index FAISS sauvegardé dans", FAISS_FILE)
-
-    # 8) Sauvegarde des produits (pas seulement les ids)
-    with open(IDS_FILE, "w", encoding="utf-8") as f:
-        json.dump(faiss_items, f, ensure_ascii=False, indent=2)
-    print("💾 ids (objets produits) sauvegardés dans", IDS_FILE)
-
-    print("🎉 Reconstruction terminée !")
-    print(f"→ {len(faiss_items)} produits indexés, dimension = {d}")
+    print("\n🎉 Reconstruction terminée !")
 
 
 if __name__ == "__main__":

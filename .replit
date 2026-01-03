@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "python-3.11"]
+modules = ["nodejs-20", "web",  "python-3.11"]
 [agent]
 expertMode = true
 
@@ -31,16 +31,8 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
-localPort = 3000
-externalPort = 3001
-
-[[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 10000
-externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"

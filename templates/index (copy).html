@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>ProdyScan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+  />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="logo-circle">P</div>
+      <div>
+        <h1>ProdyScan</h1>
+        <!-- Texte d’accueil masqué -->
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- Bloc image -->
+      <section class="card">
+        <!-- 🔘 Onglets de mode -->
+<div class="mode-tabs" style="display:flex; gap:8px; margin-bottom:12px;">
+  <button id="mode-image-btn"
+          type="button"
+          class="mode-btn active"
+          style="flex:1; padding:10px; border-radius:999px; border:none;">
+    🔍 Recherche par image
+  </button>
+
+  <button id="mode-url-btn"
+          type="button"
+          class="mode-btn"
+          style="flex:1; padding:10px; border-radius:999px; border:none; opacity:0.7;">
+    🔗 Recherche par lien (URL)
+  </button>
+</div>
+
+
+<!-- 🖼️ Bloc IMAGE -->
+<section id="block-image" class="card">
+  <h2>Choisir ou prendre une photo</h2>
+  <p class="hint">
+    Pour de meilleurs résultats, utilisez une photo claire et bien visible du produit.
+  </p>
+
+  <!-- Bouton image -->
+  <button id="choose-btn" type="button" class="primary-btn">
+    Choisir / Prendre une photo
+  </button>
+
+  <!-- Nom du fichier -->
+  <p id="file-name" class="file-name">Aucune image sélectionnée</p>
+
+  <!-- Bloc URL (caché par défaut) -->
+<section id="block-url" class="card" hidden>
+  <h2>Coller un lien de produit</h2>
+
+  <p class="hint">Colle ici le lien du produit (Jumia, Alibaba, Amazon, etc.).</p>
+
+  <input
+    id="url-input"
+    type="text"
+    placeholder="https://exemple.com/produit/123"
+    class="url-input"
+  />
+</section>
+  
+  <!-- Input fichier caché -->
+  <input id="file-input" type="file" accept="image/*" hidden />
+
+  <!-- Aperçu image -->
+  <div id="preview-wrapper" class="preview-wrapper" hidden>
+    <img id="preview-img" alt="Aperçu de l’image choisie" />
+  </div>
+</section>
+
+
+<!-- 🔗 Bloc URL -->
+<section id="block-url" class="card" hidden>
+  <h2>Recherche par lien (URL)</h2>
+
+  <p class="hint">
+    Collez le lien d’un produit depuis n’importe quelle boutique (Jumia, AliExpress, Amazon…).
+  </p>
+
+  <input
+    id="url-input"
+    type="text"
+    placeholder="Coller ici l’URL du produit"
+    class="primary-input"
+    style="width:100%; padding:12px; border-radius:10px; border:1px solid #444;"
+  />
+
+  <button id="analyse-url-btn" class="primary-btn" style="margin-top:12px;">
+    Analyser le lien 🔗
+  </button>
+</section>
+
+      <!-- Pays + boutique -->
+      <!--
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="country-select">Pays cible</label>
+          <select id="country-select">
+            <option value="global">🌍 Global</option>
+            <option value="civ">🇨🇮 Côte d’Ivoire</option>
+            <option value="sen">🇸🇳 Sénégal</option>
+            <option value="cmr">🇨🇲 Cameroun</option>
+            <option value="maroc">🇲🇦 Maroc</option>
+            <option value="tunisie">🇹🇳 Tunisie</option>
+            <option value="france">🇫🇷 France</option>
+            <option value="algerie">🇩🇿 Algérie</option>
+            <option value="mali">🇲🇱 Mali</option>
+          </select>
+        </div>
+         -->
+
+        <div class="form-group">
+          <label for="shop-select">Boutique / plateforme</label>
+          <select id="shop-select">
+            <!-- ⚠️ NOUVELLE OPTION : recherche dans ton catalogue local -->
+            <option value="local">🧠 Recherche produits (par image)</option>
+<!--
+            <option value="google">🔍 Google (par défaut)</option>
+            <option value="jumia">🛒 Jumia</option>
+            <option value="amazon">📦 Amazon</option>
+            <option value="aliexpress">🛍 AliExpress</option>
+            <option value="ebay">🌀 eBay</option>
+            <option value="cdiscount">🇫🇷 Cdiscount</option>
+            <option value="alibaba">🏭 Alibaba</option>
+            <option value="custom">⭐ Boutique personnalisée (champ ci-dessous)</option>
+           -->
+          </select>
+        </div>
+        <div class="form-group">
+  <label for="local-shop-select">Filtrer le catalogue local</label>
+  <select id="local-shop-select">
+  <option value="">🌍 Toutes les boutiques locales</option>
+  <option value="jumia">🛒 Jumia CI</option>
+  </select>
+  
+        <div class="form-group full-width hidden-custom-shop">
+    <label for="custom-shop">Boutique personnalisée (optionnel)</label>
+    <span class="label-hint">Exemple : monshop.com ou boutiqueXYZ</span>
+    <input id="custom-shop" type="text" placeholder="Nom ou domaine de ta boutique locale" />
+        </div>
+      <!-- Bouton analyser -->
+      <div class="actions-row">
+        <button id="analyse-btn" class="primary">Analyser l’image</button>
+        <div id="loader" class="loader" hidden></div>
+        <p id="error-text" class="error-text" hidden></p>
+      </div>
+
+      <!-- Résultat -->
+      <section class="card" id="result-card" hidden>
+        <h2>Résultat de l’analyse</h2>
+
+        <p class="result-description" id="result-description">
+          Description du produit…
+        </p>
+
+        <div class="result-meta">
+          <span class="badge" id="result-shop">Boutique : -</span>
+          <span class="badge" id="result-country">Pays : -</span>
+          <span class="badge badge-soft" id="result-source">Source : -</span>
+        </div>
+
+        <!-- Zone catalogue local -->
+        <div id="local-results" class="local-results"></div>
+
+        <!-- Lien vers boutiques externes -->
+        <a id="result-link" href="#" target="_blank" class="result-link">
+          Voir les offres similaires 🔗
+        </a>
+      </section>
+  <!-- Historique --> 
+      <section class="card history-card">
+        <div class="history-header">
+          <h2>Historique récent</h2>
+          <button id="clear-history" class="link-button">Effacer</button>
+        </div>
+        <div id="history-list" class="history-list empty">
+          <p class="history-empty">
+            Aucune analyse encore. Lance ta première vérification 👇
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <small>
+        ProdyScan • Analyse d’images avec OCR
+        {% if has_openai %} + OpenAI Vision{% else %}(Vision désactivée){% endif %}
+      </small>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script></body>
+</html>
