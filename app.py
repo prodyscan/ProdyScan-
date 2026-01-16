@@ -2,7 +2,13 @@ import os
 import re
 import json
 import time  # pour le cache (timestamps)
+import hashlib
+import sqlite3
+from collections import OrderedDict
 
+
+from ai import ask_qwen
+from flask import render_template
 from flask import Flask, request, jsonify, render_template
 import requests
 from bs4 import BeautifulSoup
@@ -39,9 +45,229 @@ HTTP_HEADERS = {
 }
 
 
+
+
+
+
+#API AI
+
+
+
+
+
+app = Flask(__name__)
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+@app.route("/api/ai/chat", methods=["POST"])
+def ai_chat():
+    body = request.get_json(force=True) or {}
+
+    message = (body.get("message") or "").strip()
+    language = body.get("language", "auto")
+
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    # ✅ 1) créer la clé cache
+    key = _make_key(SPACE_URL, body)
+
+    # ✅ 2) lire le cache
+    cached = _ram_get(key)
+    if cached is None:
+        cached = _db_get(key)
+
+    if cached is not None:
+        return jsonify(json.loads(cached)), 200
+
+    # ✅ 3) appel IA (SEULEMENT si pas en cache)
+    result = ask_qwen(
+        message=message,
+        language=language,
+        messages=body.get("messages"),
+        user_memory=body.get("user_memory"),
+        ocr_text=body.get("ocr_text"),
+        cost_json=body.get("cost_json"),
+        margin_json=body.get("margin_json"),
+    )
+
+    # ✅ 4) stocker le résultat
+    value_json = json.dumps(result)
+    _ram_set(key, value_json, CACHE_TTL_SECONDS)
+    _db_set(key, value_json, CACHE_TTL_SECONDS)
+
+    return jsonify(result), 200
+
+
+
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+# =========================
+# CACHE (RAM + SQLite) prêt à coller
+# =========================
+
+
+# ---- Réglages ----
+CACHE_TTL_SECONDS = 24 * 3600   # 24h (tu peux mettre 6h: 6*3600)
+RAM_MAX_ITEMS = 300             # cache RAM (petit, rapide)
+SQLITE_DB_PATH = "cache.db"     # fichier local Replit
+
+# ---- Cache RAM (LRU) ----
+_ram_cache = OrderedDict()  # key -> (expires_at, value_json)
+SPACE_URL = "aliscan-space"
+
+def _now():
+    return int(time.time())
+
+def _make_key(space_url: str, payload: dict) -> str:
+        normalized = (payload.get("message") or "").strip().lower()
+
+        ctx = {
+            "m": normalized,
+            "mem": payload.get("user_memory"),
+            "msgs": payload.get("messages", [])[-5:],  # limite
+            "ocr": payload.get("ocr_text"),
+            "cost": payload.get("cost_json"),
+            "margin": payload.get("margin_json"),
+        }
+
+        raw = f"{space_url}||{json.dumps(ctx, sort_keys=True, ensure_ascii=False)}"
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+def _ram_get(key: str):
+    item = _ram_cache.get(key)
+    if not item:
+        return None
+    expires_at, value_json = item
+    if expires_at < _now():
+        # expiré
+        _ram_cache.pop(key, None)
+        return None
+    # LRU: remet à la fin
+    _ram_cache.move_to_end(key)
+    return value_json
+
+def _ram_set(key: str, value_json: str, ttl: int):
+    expires_at = _now() + ttl
+    if key in _ram_cache:
+        _ram_cache.move_to_end(key)
+    _ram_cache[key] = (expires_at, value_json)
+    # limite RAM
+    while len(_ram_cache) > RAM_MAX_ITEMS:
+        _ram_cache.popitem(last=False)
+
+# ---- SQLite ----
+_conn = sqlite3.connect(SQLITE_DB_PATH, check_same_thread=False)
+_conn.execute("""
+CREATE TABLE IF NOT EXISTS ai_cache (
+  k TEXT PRIMARY KEY,
+  v TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+)
+""")
+_conn.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON ai_cache(expires_at)")
+_conn.commit()
+
+def _db_get(key: str):
+    cur = _conn.execute("SELECT v, expires_at FROM ai_cache WHERE k=?", (key,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    v, expires_at = row
+    if expires_at < _now():
+        # Nettoie si expiré
+        _conn.execute("DELETE FROM ai_cache WHERE k=?", (key,))
+        _conn.commit()
+        return None
+    return v
+
+def _db_set(key: str, value_json: str, ttl: int):
+    now = _now()
+    expires_at = now + ttl
+    _conn.execute("""
+    INSERT INTO ai_cache(k, v, expires_at, created_at)
+    VALUES(?, ?, ?, ?)
+    ON CONFLICT(k) DO UPDATE SET
+      v=excluded.v,
+      expires_at=excluded.expires_at
+    """, (key, value_json, expires_at, now))
+    _conn.commit()
+
+def cache_prune(limit_delete: int = 500):
+    # Supprime un paquet d'entrées expirées (rapide)
+    _conn.execute("DELETE FROM ai_cache WHERE expires_at < ? LIMIT ?",
+                  (_now(), limit_delete))
+    _conn.commit()
+
+# ---- Fonction cache unifiée ----
+def cached_call(space_url: str, message: str, fetch_fn, ttl: int = CACHE_TTL_SECONDS):
+    """
+    fetch_fn(message) doit retourner un dict JSON ou une string.
+    On stocke toujours en JSON string.
+    """
+    key = _make_key(space_url, message)
+
+    # 1) RAM
+    v_json = _ram_get(key)
+    if v_json is not None:
+        return json.loads(v_json)
+
+    # 2) SQLite
+    v_json = _db_get(key)
+    if v_json is not None:
+        _ram_set(key, v_json, ttl)
+        return json.loads(v_json)
+
+    # 3) Appel réseau (HuggingFace Space)
+    result = fetch_fn(message)
+
+    # Normalise en dict
+    if isinstance(result, str):
+        payload = {"answer": result}
+    elif isinstance(result, dict):
+        payload = result
+    else:
+        payload = {"answer": str(result)}
+
+    v_json = json.dumps(payload, ensure_ascii=False)
+    _db_set(key, v_json, ttl)
+    _ram_set(key, v_json, ttl)
+
+    # petit nettoyage occasionnel (1% des requêtes)
+    if (_now() % 100) == 0:
+        cache_prune()
+
+    return payload
 # ============================================================
 #  CACHE INTELLIGENT (produit + fournisseur)
 # ============================================================
+
+
+
+
 
 CACHE = {
     "supplier_name": {},   # { name: { "ts": 12345, "data": {...} } }
@@ -1475,6 +1701,12 @@ def guess_tracking_type(tracking_number: str) -> str:
 
     return "unknown"
 
+    
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
 
 @app.route("/track", methods=["POST"])
 def track():
@@ -1607,6 +1839,10 @@ def track():
 
 
 
+
+@app.route("/ia")
+def ia_page():
+    return render_template("ai.html")
 # ============================================================
 #  LANCEMENT LOCAL
 # ============================================================

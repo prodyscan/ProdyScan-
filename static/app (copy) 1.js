@@ -1,5 +1,5 @@
 // ==============================
-// Aliscan  - app.js
+// Aliscan Pro - app.js
 // ==============================
 
 // ===============================
@@ -425,57 +425,16 @@ function todayKey() {
 function getBilling() {
   try {
     const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
-
     return {
-      // ===== CORE =====
-      trialLeft: Number(b.trialLeft ?? 5),          // 5 essais (save + export)
-      packCredits: Number(b.packCredits ?? 0),      // crédits analyses (packs)
-      packSaves: Number(b.packSaves ?? 0),          // sauvegardes (packs)
-
-      // ===== IA =====
-      aiPack: Number(b.aiPack ?? 0),                // crédits IA achetés
-      aiTrialOnce: Number(b.aiTrialOnce ?? 20),     // 20 réponses IA (UNE seule fois)
-
-      aiFreeDay: b.aiFreeDay && b.aiFreeDay.date
-        ? b.aiFreeDay
-        : { date: todayKey(), used: 0 },            // 5 IA / jour (gratuit)
-
-      aiMonth: b.aiMonth && b.aiMonth.ym
-        ? b.aiMonth
-        : { ym: monthKey(), used: 0 },              // quota IA mensuel PRO
-
-      aiYear: b.aiYear && b.aiYear.y
-        ? b.aiYear
-        : { y: new Date().getFullYear(), used: 0 }, // quota IA annuel (optionnel)
-
-      // ===== ABONNEMENT =====
+      trialLeft: Number(b.trialLeft ?? 5),          // 5 essais (save+export)
+      packCredits: Number(b.packCredits ?? 0),      // crédits OCR payants (packs)
+      packSaves: Number(b.packSaves ?? 0),          // enregistrements payants (packs)
       subUntil: Number(b.subUntil ?? 0),            // timestamp fin abonnement
       subPlan: String(b.subPlan ?? ""),             // "month" | "year" | ""
-
-      // ===== GRATUIT / JOUR =====
-      freeDay: b.freeDay && b.freeDay.date
-        ? b.freeDay
-        : { date: todayKey(), used: 0 },            // 3 analyses / jour
+      freeDay: b.freeDay && b.freeDay.date ? b.freeDay : { date: todayKey(), used: 0 },
     };
-
   } catch {
-    // ===== FALLBACK SÉCURITÉ =====
-    return {
-      trialLeft: 5,
-      packCredits: 0,
-      packSaves: 0,
-
-      aiPack: 0,
-      aiTrialOnce: 20,
-      aiFreeDay: { date: todayKey(), used: 0 },
-      aiMonth: { ym: monthKey(), used: 0 },
-      aiYear: { y: new Date().getFullYear(), used: 0 },
-
-      subUntil: 0,
-      subPlan: "",
-
-      freeDay: { date: todayKey(), used: 0 },
-    };
+    return { trialLeft: 5, packCredits: 0, packSaves: 0, subUntil: 0, subPlan: "", freeDay: { date: todayKey(), used: 0 } };
   }
 }
 
@@ -632,85 +591,6 @@ function consumeOcr() {
 }
 
 
-// ia 
-function monthKey(){
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-}
-
-// 5 réponses IA / jour (optionnel)
-function getAiDailyRemaining(b){
-  const t = todayKey();
-  if (!b.aiFreeDay || b.aiFreeDay.date !== t) b.aiFreeDay = { date: t, used: 0 };
-  return Math.max(0, 5 - Number(b.aiFreeDay.used || 0));
-}
-
-// quota mensuel PRO (ex: 300/mois)
-function getAiMonthRemaining(b){
-  const ym = monthKey();
-  const limit = 300; // ✅ ton quota pro mensuel
-  if (!b.aiMonth || b.aiMonth.ym !== ym) b.aiMonth = { ym, used: 0 };
-  return Math.max(0, limit - Number(b.aiMonth.used || 0));
-}
-
-function canUseAI(){
-  const b = getBilling();
-
-  // PRO actif => quota mensuel
-  if (isSubActive(b)) {
-    const left = getAiMonthRemaining(b);
-    if (left > 0) return { ok: true, mode: "sub", left };
-    return { ok: false, reason: "sub_limit" };
-  }
-
-  // crédits IA achetés
-  if ((b.aiPack || 0) > 0) return { ok: true, mode: "pack", left: b.aiPack };
-
-  // essai unique 20
-  if ((b.aiTrialOnce || 0) > 0) return { ok: true, mode: "trial", left: b.aiTrialOnce };
-
-  // essai quotidien 5/jour (si tu veux garder)
-  const daily = getAiDailyRemaining(b);
-  if (daily > 0) return { ok: true, mode: "daily", left: daily };
-
-  return { ok: false, reason: "limit" };
-}
-
-function consumeAI(){
-  const b = getBilling();
-
-  // PRO actif => décrémente le mois
-  if (isSubActive(b)) {
-    if (getAiMonthRemaining(b) <= 0) return { ok:false, reason:"sub_limit" };
-    b.aiMonth.used = Number(b.aiMonth.used || 0) + 1;
-    setBilling(b);
-    return { ok:true, mode:"sub" };
-  }
-
-  if ((b.aiPack || 0) > 0) {
-    b.aiPack -= 1;
-    setBilling(b);
-    return { ok:true, mode:"pack" };
-  }
-
-  if ((b.aiTrialOnce || 0) > 0) {
-    b.aiTrialOnce -= 1;
-    setBilling(b);
-    return { ok:true, mode:"trial" };
-  }
-
-  const daily = getAiDailyRemaining(b);
-  if (daily > 0) {
-    b.aiFreeDay.used = Number(b.aiFreeDay.used || 0) + 1;
-    setBilling(b);
-    return { ok:true, mode:"daily" };
-  }
-
-  setBilling(b);
-  return { ok:false, reason:"limit" };
-}
-
-
 
 // ✅ Message paywall (affiche aussi ce qu’il reste)
 function paywallMsg() {
@@ -724,17 +604,16 @@ function paywallMsg() {
   parts.push(`Essai restant : ${b.trialLeft || 0}/5`);
   parts.push(`Pack restant : ${b.packCredits || 0} analyse(s)`);
   parts.push(`Gratuit/jour restant : ${freeLeft}/3`);
-  parts.push(`IA pack restant : ${b.aiPack || 0} réponse(s)`);
 
   // offres
   parts.push("");
   parts.push("✅ Packs :");
-  parts.push("• 500 FCFA → 100 analyses + 100 enregistrements + 50 réponses IA + export PDF/Excel");
-  parts.push("• 1000 FCFA → 300 analyses + 300 enregistrements + 120 réponses IA + export PDF/Excel");
+  parts.push("• 100 FCFA → 10 analyses + 10 enregistrements + export PDF/Excel");
+  parts.push("• 500 FCFA → 100 analyses + 100 enregistrements + export PDF/Excel");
   parts.push("");
   parts.push("✅ Abonnements :");
-  parts.push("• 2000 FCFA / mois → illimité (analyse + save + export) + IA : 300 réponses / mois");
-  parts.push("• 20 000 FCFA / an → illimité (analyse + save + export) + IA : 4000 réponses / an");
+  parts.push("• 1000 FCFA / mois → illimité (analyse + save + export)");
+  parts.push("• 10000 FCFA / an → illimité");
 
   return parts.join("\n");
 }
@@ -764,18 +643,8 @@ async function buyPack(amount) {
   }
 
   const b = getBilling();
-
-  // packs analyses & saves
   b.packCredits = (b.packCredits || 0) + amount;
   b.packSaves   = (b.packSaves || 0) + amount;
-
-  // ✅ AJOUT IA
-  if (amount === 100) {        // Pack 500 FCFA
-    b.aiPack = (b.aiPack || 0) + 50;
-  } else if (amount === 300) { // Pack 1000 FCFA
-    b.aiPack = (b.aiPack || 0) + 120;
-  }
-
   setBilling(b);
 
   toast(`✅ Pack ${amount} ajouté à votre compte`);
@@ -803,19 +672,19 @@ window.Paywall = {
   },
 
   // Packs (cumulables)
-  addPack500() {
+  addPack10() {
+    const b = getBilling();
+    b.packCredits = (b.packCredits || 0) + 10;
+    b.packSaves = (b.packSaves || 0) + 10;
+    setBilling(b);
+    alert("✅ Pack 10 ajouté. Credits=" + b.packCredits);
+  },
+  addPack100() {
     const b = getBilling();
     b.packCredits = (b.packCredits || 0) + 100;
     b.packSaves = (b.packSaves || 0) + 100;
     setBilling(b);
-    alert("✅ Pack 500 ajouté. Credits=" + b.packCredits);
-  },
-  addPack1000() {
-    const b = getBilling();
-    b.packCredits = (b.packCredits || 0) + 300;
-    b.packSaves = (b.packSaves || 0) + 300;
-    setBilling(b);
-    alert("✅ Pack 1000 ajouté. Credits=" + b.packCredits);
+    alert("✅ Pack 100 ajouté. Credits=" + b.packCredits);
   },
 
   // Abonnements (prolonge si déjà actif)
@@ -894,44 +763,6 @@ function refreshPricingUI() {
   if (el("st-packCredits")) el("st-packCredits").textContent = String(b.packCredits || 0);
   if (el("st-packSaves")) el("st-packSaves").textContent = String(b.packSaves || 0);
   if (el("st-freeLeft")) el("st-freeLeft").textContent = String(freeLeft);
-  
-  // ===== IA restantes =====
-  const ai = canUseAI(); // { ok, mode, left }
-
-  if (el("st-aiLeft")) {
-    let label = "";
-
-    if (ai.ok) {
-      switch (ai.mode) {
-        case "sub":
-          label = " / mois";
-          break;
-        case "pack":
-          label = " (pack)";
-          break;
-        case "trial":
-          label = " (essai)";
-          break;
-        case "daily":
-          label = " / jour";
-          break;
-        default:
-          label = "";
-      }
-    }
-
-    el("st-aiLeft").textContent =
-      ai.ok
-        ? `${ai.left ?? 0}${label}`
-        : "0";
-  }
-
-// ===== Date fin abonnement =====
-if (el("st-subUntil")) {
-  el("st-subUntil").textContent = sub
-    ? new Date(b.subUntil).toLocaleDateString("fr-FR")
-    : "—";
-}
 
   // BOUTONS (état/texte seulement)
   const btnM = el("buy-pro-month");
@@ -942,7 +773,7 @@ if (el("st-subUntil")) {
     const active = sub && b.subPlan === "month";
     btnM.textContent = active
       ? "✅ Pro mensuel actif"
-      : (sub ? "Passer en Mensuel — 2000 FCFA/mois" : "Activer Mensuel — 2000 FCFA/mois");
+      : (sub ? "Passer en Mensuel — 1000 FCFA/mois" : "Activer Mensuel — 1000 FCFA/mois");
     btnM.disabled = false;
     btnM.classList.toggle("btn-active", active);
   }
@@ -951,7 +782,7 @@ if (el("st-subUntil")) {
     const active = sub && b.subPlan === "year";
     btnY.textContent = active
       ? "✅ Pro annuel actif"
-      : (sub ? "Passer en Annuel — 20 000 FCFA/an" : "Activer Annuel — 20 000 FCFA/an");
+      : (sub ? "Passer en Annuel — 10 000 FCFA/an" : "Activer Annuel — 10 000 FCFA/an");
     btnY.disabled = false;
     btnY.classList.toggle("btn-active", active);
   }
@@ -1033,9 +864,6 @@ async function buyPack(amount) {
   const b = getBilling();
   b.packCredits = (Number(b.packCredits) || 0) + amount;
   b.packSaves   = (Number(b.packSaves) || 0) + amount;
-  // ✅ IA pack (ex: amount=100 => 50 réponses, amount=300 => 120)
-if (amount === 100) b.aiPack = (b.aiPack || 0) + 50;
-if (amount === 300) b.aiPack = (b.aiPack || 0) + 120;
   setBilling(b);
 
   if (typeof toast === "function") toast(`✅ Pack ${amount} ajouté à votre compte`);
@@ -1044,16 +872,16 @@ if (amount === 300) b.aiPack = (b.aiPack || 0) + 120;
 
 // --- Bind des clics (UNE SEULE FOIS) ---
 function bindPricingButtons() {
-  const btnPack100  = document.getElementById("buy-pack-10");
-  const btnPack300 = document.getElementById("buy-pack-100");
+  const btnPack10  = document.getElementById("buy-pack-10");
+  const btnPack100 = document.getElementById("buy-pack-100");
   const btnProM    = document.getElementById("buy-pro-month");
   const btnProY    = document.getElementById("buy-pro-year");
   const btnCancel  = document.getElementById("cancel-pro");
   const btnRefresh = document.getElementById("pricing-refresh");
   const btnReset   = document.getElementById("pricing-reset");
 
-  if (btnPack100)  btnPack100.onclick  = () => buyPack(100);
-  if (btnPack300) btnPack300.onclick = () => buyPack(300);
+  if (btnPack10)  btnPack10.onclick  = () => buyPack(10);
+  if (btnPack100) btnPack100.onclick = () => buyPack(100);
 
   // switch possible (annuel <-> mensuel)
   if (btnProM) btnProM.onclick = () => {
@@ -1317,6 +1145,34 @@ function exportCalcToPDF() {
   doc.setFontSize(11);
   doc.text(`Devise : ${cur}`, 14, y); y += 8;
 
+  
+  /*// --- COÛT
+  doc.setFontSize(12);
+  doc.text("Détails du coût", 14, y); y += 8;
+
+  doc.setFontSize(11);
+  const addLine = (k, v) => {
+    if (v === "" || v === null || v === undefined) return;
+    doc.text(`${k} : ${v}`, 14, y);
+    y += 7;
+    if (y > 280) { doc.addPage(); y = 20; }
+  };
+
+  // ===============================
+// Infos principales (AVANT détails)
+// ===============================
+  addLine("Produit", snap.cost?.productName || "—");
+  addLine("Fournisseur", snap.cost?.supplierName || "—");
+
+// petit espace visuel
+  y += 4;
+  
+  addLine("Produits", `${fmt(snap.cost.productsTotal)} ${cur}`);
+  addLine("Livraison locale", `${fmt(snap.cost.localFees)} ${cur}`);
+  addLine("Transport international", `${fmt(snap.cost.shipping)} ${cur}`);
+  addLine("Taxes / douane (%)", snap.cost.taxesPct != null ? `${snap.cost.taxesPct}%` : "—");
+  addLine("Montant taxes", `${fmt(snap.cost.taxesAmount)} ${cur}`);
+  addLine("TOTAL FINAL", `${fmt(snap.cost.totalFinal)} ${cur}`);*/
   
  
   // --- INFOS PRINCIPALES (AVANT DÉTAILS)

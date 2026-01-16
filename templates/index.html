@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Aliscan Pro - Analyse & Calcul de coût</title>
+  <title>Aliscan - Analyse & Calcul de coût</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link
     rel="stylesheet"
@@ -19,9 +19,9 @@
     <header class="app-header">
       <div class="logo-circle">A</div>
       <div class="header-texts">
-        <h1>Aliscan Pro</h1>
+        <h1>Aliscan </h1>
         <p class="subtitle">
-          Analyse capture ALibaba, calcul de coût,conversion de devise et tracking.
+          Analyse capture ALibaba, calculateur de coût et IA Assistant pour toutes vos questions
         </p>
       </div>
     </header>
@@ -33,14 +33,17 @@
 
       <!-- ==========================
            MENU PRINCIPAL
-      =========================== -->
+      =========================== -->      
+      
       <div class="menu-wrapper">
-        <button id="menu-toggle" class="menu-toggle">
-          ☰ Menu
-        </button>
+        <div class="top-actions">
+          <button id="menu-toggle" class="menu-toggle">☰ Menu</button>
+
+          
+        </div>
 
         <nav id="main-menu" class="main-menu menu-closed">
-
+          
           <button class="menu-btn menu-btn-active" data-screen="screen-ocr">
             📷 Analyse images
           </button>
@@ -56,10 +59,10 @@
           <button class="menu-btn" data-screen="screen-tracking">
             📦 Tracking
           </button>
+
           <button class="menu-btn" data-screen="screen-pricing">
-  💎 Abonnements
+            💎 Abonnements
           </button>
-          
         </nav>
       </div>
 
@@ -75,14 +78,17 @@
           <!-- STATUT -->
           <div class="card" style="margin-top:14px;">
             <h3 style="margin:0 0 10px;">📊 Ton statut</h3>
-            <div class="grid-2">
-              <div class="pill">Plan : <b id="st-plan">—</b></div>
-              <div class="pill">Essai restant : <b id="st-trial">—</b></div>
-              <div class="pill">Pack crédits : <b id="st-packCredits">—</b></div>
-              <div class="pill">Pack saves : <b id="st-packSaves">—</b></div>
-              <div class="pill">Free/jour restant : <b id="st-freeLeft">—</b></div>
-              <div class="pill">Abonnement jusqu’au : <b id="st-subUntil">—</b></div>
-            </div>
+         
+
+          <div class="grid-2">
+  <div class="pill">Plan : <b id="st-plan">—</b></div>
+  <div class="pill">Essai restant : <b id="st-trial">—</b></div>
+  <div class="pill">Pack crédits : <b id="st-packCredits">—</b></div>
+  <div class="pill">Pack saves : <b id="st-packSaves">—</b></div>
+  <div class="pill">Free/jour restant : <b id="st-freeLeft">—</b></div>
+  <div class="pill">🧠 Réponses IA restantes : <b id="st-aiLeft">—</b></div>
+  <div class="pill">Abonnement jusqu’au : <b id="st-subUntil">—</b></div>
+          </div>
 
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
               <button id="pricing-refresh" class="btn-secondary">🔄 Rafraîchir</button>
@@ -103,6 +109,8 @@
                 <li>✅ Calcul coût & marge</li>
                 <li>❌ Sauvegarde / Historique</li>
                 <li>❌ Export PDF/Excel</li>
+                <li>🧠 IA : 5 réponses / jour</li>
+                
               </ul>
               <div class="note">Après l’essai : 3 analyses / jour, sans sauvegarde/export.</div>
             </div>
@@ -114,29 +122,15 @@
                 <span id="badge-trial" class="badge-active" hidden>ACTIF</span>
               </div>
               <ul class="list">
-                <li>✅ 5 analyses gratuites</li>
+                <li>✅ 10 analyses gratuites</li>
                 <li>✅ Sauvegarde + Export OK</li>
+                <li>🧠 IA : 20 réponses (une seule fois)</li>
+                
               </ul>
               <div class="note">Une fois terminé → Free quotidien (3/jour, sans save/export).</div>
             </div>
 
-            <!-- PACK 10 -->
-            <div class="card">
-              <div class="plan-header">
-                <h3 style="margin:0;">📦 Pack 10</h3>
-                <span id="badge-pack10" class="badge-active" hidden>ACTIF</span>
-              </div>
-              <div style="font-size:18px; font-weight:800;">100 FCFA</div>
-              <ul class="list">
-                <li>✅ 10 analyses</li>
-                <li>✅ 10 enregistrements</li>
-                <li>✅ Export PDF/Excel</li>
-                <li>✅ Analyse capture + coût&marge</li>
-              </ul>
-              <button id="buy-pack-10" class="btn-primary" style="width:100%;">Acheter Pack 10</button>
-            </div>
-
-            <!-- PACK 100 -->
+            <!-- PACK 500 -->
             <div class="card">
               <div class="plan-header">
                 <h3 style="margin:0;">📦 Pack 100</h3>
@@ -148,8 +142,26 @@
                 <li>✅ 100 enregistrements</li>
                 <li>✅ Export PDF/Excel</li>
                 <li>✅ Analyse capture + coût&marge</li>
+                <li>🧠 IA : 50 réponses</li>
               </ul>
-              <button id="buy-pack-100" class="btn-primary" style="width:100%;">Acheter Pack 100</button>
+              <button id="buy-pack-10" class="btn-primary" style="width:100%;">Acheter Pack 100</button>
+            </div>
+
+            <!-- PACK 1000 -->
+            <div class="card">
+              <div class="plan-header">
+                <h3 style="margin:0;">📦 Pack 300</h3>
+                <span id="badge-pack300" class="badge-active" hidden>ACTIF</span>
+              </div>
+              <div style="font-size:18px; font-weight:800;">1000 FCFA</div>
+              <ul class="list">
+                <li>✅ 300 analyses</li>
+                <li>✅ 300 enregistrements</li>
+                <li>✅ Export PDF/Excel</li>
+                <li>✅ Analyse capture + coût&marge</li>
+                <li>🧠 IA : 120 réponses</li>
+              </ul>
+              <button id="buy-pack-100" class="btn-primary" style="width:100%;">Acheter Pack 1000</button>
             </div>
 
             <!-- ABONNEMENT -->
@@ -162,11 +174,12 @@
                 <li>✅ Analyses illimitées</li>
                 <li>✅ Sauvegarde illimitée</li>
                 <li>✅ Export illimité</li>
+                <li>🧠 IA : 300 réponses / mois</li>
               </ul>
 
               <div style="display:grid; gap:10px; margin-top:10px;">
-                <button id="buy-pro-month" class="btn-primary">Activer Mensuel — 1000 FCFA/mois</button>
-                <button id="buy-pro-year" class="btn-primary">Activer Annuel — 10 000 FCFA/an</button>
+                <button id="buy-pro-month" class="btn-primary">Activer Mensuel — 2000 FCFA/mois</button>
+                <button id="buy-pro-year" class="btn-primary">Activer Annuel — 20000 FCFA/an</button>
                 <button id="cancel-pro" class="btn-secondary" hidden>
   Se désabonner (revenir au gratuit)
                 </button>
@@ -861,7 +874,10 @@
     </footer>
     <!-- Mini bouton Alibaba (toujours visible) -->
     <button id="mini-alibaba-btn" class="mini-fab" type="button" title="Ouvrir Alibaba">
-  Alibaba
+  Voir Alibaba
+    </button>
+    <button class="ai-float-btn" onclick="window.location.href='/ia'">
+  🧠 IA
     </button>
   </div>
   <!-- OCR -->
@@ -875,6 +891,18 @@
 
 <!-- TON JS PRINCIPAL  -->
 <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  
+<footer style="
+  margin-top:40px;
+  padding:20px 0;
+  text-align:center;
+  font-size:14px;
+  color:#666;
+">
+  <a href="/privacy" style="color:#666; text-decoration:underline;">
+    Politique de confidentialité
+  </a>
+</footer>
 
 <!-- MODAL : Pack pour qui ? 
 <div id="recipient-modal" class="modal" hidden>

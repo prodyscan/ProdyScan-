@@ -1,0 +1,502 @@
+/* ✅ IA PAGE ONLY (ne modifie pas ton app global) */
+
+.ia-page{
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+.ia-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ia-title h1{
+  margin:0;
+  font-size: 22px;
+}
+
+.ia-title p{
+  margin: 6px 0 0;
+  opacity: .7;
+  font-size: 13px;
+}
+
+.back-btn{
+  text-decoration: none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+  font-weight: 600;
+}
+
+.back-btn:active{ transform: translateY(1px); }
+
+.ia-card{
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 18px;
+  padding: 12px;
+}
+
+#ai-messages{
+  height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 14px;
+  background: #f6f7fb;
+  border: 1px solid #ececec;
+}
+
+.ai-msg{
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.35;
+  font-size: 14px;
+}
+
+.ai-me{
+  margin-left: auto;
+  background: #e9f2ff;
+  border: 1px solid #d7e8ff;
+}
+
+.ai-bot{
+  margin-right: auto;
+  background: #ffffff;
+  border: 1px solid #e7e7e7;
+}
+
+.ia-inputbar{
+  display:flex;
+  gap:10px;
+  margin-top: 10px;
+}
+
+#ai-text{
+  flex:1;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 14px;
+  resize: none;
+}
+
+#ai-send{
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: none;
+  background: #1f5eff;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 92px;
+}
+
+#ai-send:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+.ia-footnote{
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: .7;
+  text-align:center;
+}
+
+/* ===== Top bar ===== */
+.top-bar{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* ===== IA button (LEFT, FREE) ===== */
+.ai-btn-left{
+  border: 1px solid #ddd;
+  background: #ffffff;
+  color: #111;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-btn-left:active{
+  transform: translateY(1px);
+}
+
+
+.top-bar{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+  padding-top: 6px;
+}
+
+
+.back-btn{
+  border: 1px solid #e6e6e6;
+  background: #ffffff;
+  color: #111;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+
+.back-btn:active{
+  transform: translateY(1px);
+}
+
+
+.ia-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom: 12px;
+}
+
+.ai-msg {
+  white-space: pre-wrap; /* IMPORTANT pour afficher \n du raw */
+  word-break: break-word;
+}
+
+.ai-header-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.ai-layout{
+  display:flex;
+  gap:12px;
+}
+
+.ai-sidebar{
+  width: 240px;
+  flex: 0 0 240px;
+}
+
+.ai-main{
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-new-chat{
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.10);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-chat-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.ai-chat-item{
+  width:100%;
+  text-align:left;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-size: 13px;
+}
+
+.ai-chat-item.active{
+  border-color: rgba(255,255,255,.30);
+  background: rgba(255,255,255,.10);
+}
+
+@media (max-width: 900px){
+  .ai-layout{ flex-direction: column; }
+  .ai-sidebar{ width: 100%; flex: 0 0 auto; }
+}
+
+.ai-chat-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.ai-chat-open{
+  flex:1;
+  text-align:left;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-size: 13px;
+}
+
+.ai-chat-row.active .ai-chat-open{
+  border-color: rgba(255,255,255,.30);
+  background: rgba(255,255,255,.10);
+}
+
+.ai-chat-icon{
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+
+/*new*/
+
+.ai-chat-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:8px;
+  border-radius:12px;
+  margin-bottom:8px;
+  background:#ffffff;
+  border:1px solid rgba(0,0,0,0.06);
+}
+
+.ai-chat-row.active{
+  border-color: rgba(0,0,0,0.18);
+}
+
+.ai-chat-open{
+  flex:1;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,0.08);
+  background:#f7f7f9;
+}
+
+.ai-chat-icon{
+  padding:10px 10px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,0.08);
+  background:#fff;
+  font-size:12px;
+}
+
+.ai-chat-icon.danger{
+  border-color: rgba(255,0,0,0.25);
+}
+
+/*menu*/
+.ai-history-btn{
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+.ai-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: .2s;
+  z-index: 50;
+}
+.ai-overlay.show{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Sidebar drawer (mobile first) */
+.ai-sidebar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: min(360px, 88vw);
+  background: #fff;
+  border-right: 1px solid #eee;
+  transform: translateX(-110%);
+  transition: .25s ease;
+  z-index: 60;
+  overflow: auto;
+  padding: 12px;
+}
+.ai-sidebar.open{
+  transform: translateX(0);
+}
+
+.ai-sidebar-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.ai-sidebar-title{
+  font-weight: 800;
+  font-size: 18px;
+}
+.ai-close-sidebar{
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+/* Sur desktop: sidebar visible normale + pas d’overlay */
+@media (min-width: 900px){
+  .ai-overlay{ display:none; }
+  .ai-sidebar{
+    position: sticky;
+    top: 0;
+    transform: none !important;
+    height: auto;
+    width: 320px;
+    z-index: 1;
+    border-right: 1px solid #eee;
+  }
+}
+
+/*bouton retour flottant*/
+.back-float {
+  position: fixed;
+  top: 12px;
+  right: 12px;   /* ✅ HAUT À DROITE */
+  z-index: 9999;
+
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.15);
+  background: #ffffff;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  box-shadow: 0 8px 18px rgba(0,0,0,.15);
+}
+
+.ai-header {
+  padding-top: 56px;
+}
+
+/*champ poser la question*/
+.ai-main {
+  padding-bottom: 110px; /* espace pour que le clavier / barre n'écrase pas */
+}
+
+/* Remonte légèrement la barre d’écriture */
+.ai-inputbar {
+  position: sticky;
+  bottom: 14px;  /* au lieu de 0 : ça remonte un peu */
+  margin-top: 10px;
+}
+
+/*bouton principal ia*/
+/* Bouton flottant IA */
+.ai-float-btn{
+  background: #000 !important;
+  color: #fff !important;
+  border: none;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.45);
+}
+
+/* Hover / tap */
+.ai-float-btn:hover{
+  background: #111 !important;
+}
+
+
+/*bouton help*/
+.ai-help-btn{
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #cfe3ff;
+  background: #e9f2ff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 9999;
+}
+
+.ai-help-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 120, 255, 0.18); /* bleu clair */
+  display: none;
+  z-index: 10000;
+}
+
+.ai-help-overlay.open{
+  display: block;
+}
+
+.ai-help-modal{
+  position: absolute;
+  top: 70px;
+  left: 12px;
+  right: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+  background: #e9f2ff;  /* bleu clair plein */
+  border: 1px solid #cfe3ff;
+  border-radius: 16px;
+  padding: 16px 16px 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.ai-help-close{
+  position: sticky;
+  top: 0;
+  float: right;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid #cfe3ff;
+  background: white;
+  font-size: 18px;
+  cursor: pointer;
+}

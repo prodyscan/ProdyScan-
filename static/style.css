@@ -25,7 +25,7 @@ body {
    LAYOUT GLOBAL
 ========================== */
 .app {
-  min-height: 100vh;
+  min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
   padding: 16px 16px 32px;
@@ -2122,4 +2122,93 @@ button.btn-primary:disabled {
 
 #mini-alibaba-btn:active{
   transform: scale(0.97);
+}
+/*bouton assistant IA*/
+/*.ai-btn {
+  position: fixed;
+  top: 10px;
+  right: 60px; /* ajuste si besoin */
+  /*background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 1000;
+}*/
+
+/*.ai-btn:hover {
+  background: #333;
+}
+.ai-msg { padding: 10px 12px; margin: 8px 0; border-radius: 12px; max-width: 92%; }
+.ai-me { background: #e8f0fe; margin-left: auto; }
+.ai-bot { background: #fff; border: 1px solid #eee; }
+
+.ai-page { background:#f6f7fb; margin:0; font-family: system-ui, Arial; }
+.ai-top { position: sticky; top:0; background:#fff; padding:10px 12px; border-bottom:1px solid #eee; display:flex; gap:10px; align-items:center; }
+.back-btn { text-decoration:none; font-weight:600; }
+.ai-container { padding:12px; }
+.ai-messages { height: calc(100vh - 140px); overflow:auto; background:#fff; border:1px solid #eee; border-radius:14px; padding:10px; }
+.ai-input { display:flex; gap:8px; margin-top:10px; }
+.ai-input input { flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; }
+.ai-input button { padding:12px 14px; border-radius:12px; border:0; background:#111; color:#fff; }*/
+
+/* =========================
+   ProdyScana AI - CSS (Chat)
+   ========================= */
+
+.ai-float-btn {
+  position: fixed;
+  left: 14px;
+  bottom: 90px; /* au-dessus du bouton Alibaba */
+  z-index: 9999;
+
+  background: #4f46e5; /* violet / bleu pro */
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+
+.ai-float-btn:hover {
+  transform: scale(1.05);
+}
+
+
+/* Bouton flottant IA – gris graphite */
+.ai-float-btn {
+  background: #2f3238;          /* gris foncé élégant */
+  color: #ffffff;
+  border: none;
+  box-shadow: 
+    0 10px 25px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(255,255,255,0.06);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+/* Hover / tap */
+.ai-float-btn:hover,
+.ai-float-btn:active {
+  background: #3a3e45;
+  transform: translateY(-1px);
+}
+
+
+
+
+
+
+
+#main-menu.menu-closed {
+  display: none !important;
+}
+#main-menu {
+  display: block;
 }

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assistant Aliscan</title>
+  <link rel="stylesheet" href="/static/ai.css">
+</head>
+
+<body>
+  <div class="ai-page">
+
+    <header class="ai-header">
+      <div class="ai-title">
+        <h1>Assistant Aliscan</h1>
+        <p>Questions Alibaba • Import/Export • Coûts • Marge• Generales</p>
+      </div>
+
+      <div class="ai-header-actions">
+        <button id="ai-history-btn" class="ai-history-btn" type="button">☰ Historique</button>
+        <button id="ai-new-chat" class="ai-new-chat" type="button">+ Nouvelle discussion</button>
+      </div>
+  
+    </header>
+
+    <!-- ℹ️ Help button (top-left) -->
+    <button id="ai-help-btn" class="ai-help-btn" type="button" aria-label="Infos">ℹ️</button>
+
+    <!-- Help overlay -->
+    <div id="ai-help-overlay" class="ai-help-overlay" aria-hidden="true">
+      <div class="ai-help-modal" role="dialog" aria-modal="true">
+        <button id="ai-help-close" class="ai-help-close" type="button" aria-label="Fermer">✕</button>
+
+        <h2>AliScan Assistant</h2>
+
+        <h3>🇫🇷 Français</h3>
+        <ul>
+          <li>📦 Import / Export, Alibaba, coûts, marges</li>
+          <li>📚 Aide scolaire (maths, français, devoirs)</li>
+          <li>✍️ Rédaction et correction de textes</li>
+          <li>🧠 Conseils et explications générales(mécanique, élevage, métier,etc.)</li>
+          <li>📖 Aide éducative et biblique (informatif)</li>
+        </ul>
+        <p><em>AliScan Assistant est une aide numérique. Il ne remplace pas un humain, un enseignant, un médecin ou un professionnel.</em></p>
+
+        <hr>
+
+        <h3>🇬🇧 English</h3>
+        <ul>
+          <li>📦 Import/Export, Alibaba, costs & margins</li>
+          <li>📚 School help (math, language, homework)</li>
+          <li>✍️ Writing and text correction</li>
+          <li>🧠 General advice and explanations(Mechanics, livestock farming, trade/profession, etc.) </li>
+          <li>📖 Educational & biblical help (informational)</li>
+        </ul>
+        <p><em>AliScan Assistant provides informational help only and does not replace a human or professional.</em></p>
+      </div>
+    </div>
+
+
+    
+    <!-- Overlay (menu) -->
+    <div id="ai-overlay" class="ai-overlay"></div>
+
+    <div class="ai-layout">
+      <!-- Sidebar historique -->
+      <aside id="ai-sidebar" class="ai-sidebar">
+        <div class="ai-sidebar-head">
+          <div class="ai-sidebar-title">Historique</div>
+          <button id="ai-close-sidebar" class="ai-close-sidebar" type="button">✕</button>
+        </div>
+        <div id="ai-chat-list" class="ai-chat-list"></div>
+      </aside>
+
+      <!-- Chat -->
+      <main class="ai-main">
+        <div class="ai-card">
+          <div class="ai-messages" id="ai-messages"></div>
+
+          <div class="ai-inputbar">
+            <textarea id="ai-text" class="ai-text" rows="2" placeholder="Pose ta question à AliScan Assistant..."></textarea>
+            <button id="ai-send" class="ai-send" type="button">Envoyer</button>
+          </div>
+        </div>
+
+        <div class="ai-footnote">
+          Astuce : écris en français, anglais ou arabe — la langue est détectée automatiquement.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ✅ Bouton Retour flottant (haut droite) -->
+  <button class="back-float" type="button" onclick="history.back()">← Retour</button>
+
+  <!-- ✅ Un seul JS -->
+  <script src="/static/billing.js"></script>
+  <script src="/static/ai.js"></script>
+</body>
+</html>
