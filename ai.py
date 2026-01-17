@@ -41,17 +41,14 @@ LANGUAGE RULE (STRICT):
 """.strip()
 
 FORBIDDEN_PHRASES = [
-    "outil fourni par alibaba",
-    "outil d'alibaba",
-    "plateforme alibaba",
-    "appartenant à alibaba",
+    "aliscan est",
+    "ali scan est",
+    "application alibaba",
+    "outil alibaba",
     "fourni par alibaba",
-    "alibaba group",
-    "alibaba cloud",
-    "équipe alibaba",
     "développé par alibaba",
     "créé par alibaba",
-    "travaille pour alibaba",
+    "appartenant à alibaba",
 ]
 
 LEGAL_CORRECTION_FR = (
@@ -64,12 +61,16 @@ LEGAL_CORRECTION_FR = (
 # Helpers
 # -----------------------------
 def sanitize_answer(answer: str) -> str:
-    ans = (answer or "").strip()
-    lower = ans.lower()
-    for phrase in FORBIDDEN_PHRASES:
-        if phrase in lower:
-            return LEGAL_CORRECTION_FR
-    return ans
+        ans = (answer or "").strip()
+        lower = ans.lower()
+
+        # ⚠️ Corriger UNIQUEMENT si AliScan est concerné
+        if "aliscan" in lower:
+            for phrase in FORBIDDEN_PHRASES:
+                if phrase in lower:
+                    return LEGAL_CORRECTION_FR
+
+        return ans
 
 def _normalize_language(lang: Optional[str]) -> str:
     if not lang:
@@ -216,7 +217,7 @@ def ask_qwen(
 
         except Exception as e2:
             return {
-                "error": "Qwen inference failed",
+                "error": "⏳ Optimisation en cours pour un meilleur résultat… Merci de réessayer dans quelques instants.",
                 "detail": str(e),
                 "detail2": str(e2),
                 "model": MODEL_ID,

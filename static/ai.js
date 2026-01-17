@@ -97,22 +97,16 @@ function consumeAI() {
     return { ok: true };
   }
 
-  if (b.aiTrialOnce > 0) {
-    b.aiTrialOnce--;
-    setBilling(b);
-    return { ok: true };
-  }
 
   b.aiFreeDay.used = (b.aiFreeDay.used || 0) + 1;
   setBilling(b);
   return { ok: true };
 }
 
-// 🌍 EXPOSITION GLOBALE
+/*window.getBilling = getBilling;
+window.setBilling = setBilling;
 window.canUseAI = canUseAI;
-window.consumeAI = consumeAI;
-window.getBilling = getBilling;
-
+window.consumeAI = consumeAI;*/
 
     
 function openHelp(){
@@ -432,13 +426,9 @@ async function sendToAI() {
     return;
   }
 
-  // ➖ Consommer 1 réponse IA AVANT l'appel
-  const bBefore = window.getBilling ? window.getBilling() : null;
-  window.consumeAI?.();
-
-  // 🔄 Mettre à jour "Ton statut" si présent sur cette page
-  if (typeof refreshPricingUI === "function") refreshPricingUI();
-
+  const bBefore = window.getBilling ? 
+  window.getBilling() : null;
+  
   // UI message utilisateur
   input.value = "";
   addBubble("🧑 " + msg, "ai-msg ai-me");
@@ -498,7 +488,14 @@ async function sendToAI() {
 
     const data = await r.json();
     const answer = (data.answer || data.error || "Pas de réponse.");
-
+    // ✅ Consommer seulement si succès
+    const use = window.consumeAI?.();
+    if (!use?.ok) {
+  alert("❌ Limite IA atteinte");
+  return;
+    }
+    if (typeof refreshPricingUI === "function") refreshPricingUI();
+    
     loading.classList.remove("typing");
     loading.textContent = "💬 " + answer;
 

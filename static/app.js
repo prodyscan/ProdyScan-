@@ -422,19 +422,20 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const TRIAL_MAX = 25;
 function getBilling() {
   try {
     const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
 
     return {
       // ===== CORE =====
-      trialLeft: Number(b.trialLeft ?? 5),          // 5 essais (save + export)
+      trialLeft: Number(b.trialLeft ?? TRIAL_MAX),         // 5 essais (save + export)
       packCredits: Number(b.packCredits ?? 0),      // crédits analyses (packs)
       packSaves: Number(b.packSaves ?? 0),          // sauvegardes (packs)
 
       // ===== IA =====
       aiPack: Number(b.aiPack ?? 0),                // crédits IA achetés
-      aiTrialOnce: Number(b.aiTrialOnce ?? 20),     // 20 réponses IA (UNE seule fois)
+      aiTrialOnce: 0, // désactivé → essai commun via trialLeft
 
       aiFreeDay: b.aiFreeDay && b.aiFreeDay.date
         ? b.aiFreeDay
@@ -461,7 +462,7 @@ function getBilling() {
   } catch {
     // ===== FALLBACK SÉCURITÉ =====
     return {
-      trialLeft: 5,
+      trialLeft: TRIAL_MAX,
       packCredits: 0,
       packSaves: 0,
 
@@ -666,8 +667,8 @@ function canUseAI(){
   // crédits IA achetés
   if ((b.aiPack || 0) > 0) return { ok: true, mode: "pack", left: b.aiPack };
 
-  // essai unique 20
-  if ((b.aiTrialOnce || 0) > 0) return { ok: true, mode: "trial", left: b.aiTrialOnce };
+  // ✅ ESSAI = quota commun
+  if ((b.trialLeft || 0) > 0) return { ok: true, mode: "trial", left: b.trialLeft };
 
   // essai quotidien 5/jour (si tu veux garder)
   const daily = getAiDailyRemaining(b);
@@ -693,12 +694,13 @@ function consumeAI(){
     return { ok:true, mode:"pack" };
   }
 
-  if ((b.aiTrialOnce || 0) > 0) {
-    b.aiTrialOnce -= 1;
+  if ((b.trialLeft || 0) > 0) {
+    b.trialLeft -= 1;
     setBilling(b);
     return { ok:true, mode:"trial" };
   }
-
+  
+  
   const daily = getAiDailyRemaining(b);
   if (daily > 0) {
     b.aiFreeDay.used = Number(b.aiFreeDay.used || 0) + 1;
@@ -710,7 +712,10 @@ function consumeAI(){
   return { ok:false, reason:"limit" };
 }
 
-
+window.getBilling = getBilling;
+window.setBilling = setBilling;
+window.canUseAI = canUseAI;
+window.consumeAI = consumeAI;
 
 // ✅ Message paywall (affiche aussi ce qu’il reste)
 function paywallMsg() {
@@ -721,7 +726,8 @@ function paywallMsg() {
   parts.push("❌ Limite atteinte.");
 
   // infos restantes
-  parts.push(`Essai restant : ${b.trialLeft || 0}/5`);
+  parts.push(`Essai restant : ${b.trialLeft || 0}/${TRIAL_MAX}`);
+  parts.push(`IA (essai) restant : ${b.trialLeft || 0}`);
   parts.push(`Pack restant : ${b.packCredits || 0} analyse(s)`);
   parts.push(`Gratuit/jour restant : ${freeLeft}/3`);
   parts.push(`IA pack restant : ${b.aiPack || 0} réponse(s)`);
@@ -893,7 +899,32 @@ function refreshPricingUI() {
   if (el("st-trial")) el("st-trial").textContent = String(b.trialLeft || 0);
   if (el("st-packCredits")) el("st-packCredits").textContent = String(b.packCredits || 0);
   if (el("st-packSaves")) el("st-packSaves").textContent = String(b.packSaves || 0);
-  if (el("st-freeLeft")) el("st-freeLeft").textContent = String(freeLeft);
+  // 🔥 UI logique ESSAI (robuste)
+  const hideLine = (id, hide) => {
+    const node = el(id);
+    if (!node) return;
+
+    // on tente plusieurs parents possibles
+    const line =
+      node.closest(".stat-line") ||
+      node.closest(".stat") ||
+      node.closest(".row") ||
+      node.closest("li") ||
+      node.parentElement;
+
+    if (line) line.classList.toggle("hidden", !!hide);
+  };
+
+  const trialActive = (b.trialLeft || 0) > 0;
+
+  const aiLine = document.getElementById("st-aiLeft")?.closest(".stat-line") 
+              || document.getElementById("st-aiLeft")?.parentElement;
+  if (aiLine) aiLine.hidden = trialActive;
+
+  // (optionnel) tu peux aussi masquer Free/jour
+  const freeLine = document.getElementById("st-freeLeft")?.closest(".stat-line")
+                || document.getElementById("st-freeLeft")?.parentElement;
+  if (freeLine) freeLine.hidden = trialActive;
   
   // ===== IA restantes =====
   const ai = canUseAI(); // { ok, mode, left }

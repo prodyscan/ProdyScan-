@@ -2212,3 +2212,72 @@ button.btn-primary:disabled {
 #main-menu {
   display: block;
 }
+
+
+/* === Boutons flottants blancs transparents, Alibaba et ia === 
+.mini-fab,
+.ai-float-btn {
+  background: rgba(255, 255, 255, 0.85); /* blanc transparent /
+  color: #111;                           /* texte sombre/ 
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);            /* effet glass /
+  -webkit-backdrop-filter: blur(6px);
+
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  border-radius: 999px;
+
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+/* Hover (classe premium)/ 
+.mini-fab:hover,
+.ai-float-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.18);
+}
+
+/* Active (tap mobile) /
+.mini-fab:active,
+.ai-float-btn:active {
+  transform: scale(0.96);
+}*/
+
+/* === Boutons TRANSPARENTS "continuer" / flottants === */
+/* === Boutons transparents BLEUS (IA / Voir Alibaba / Continuer) === */
+.mini-fab,
+.ai-float-btn,
+.btn-continue {
+  background: transparent !important;          /* 🔥 fond transparent */
+  color: #2563eb !important;                   /* 🔵 bleu lisible */
+  border: 2px solid #2563eb;                   /* 🔵 contour bleu */
+
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+/* Hover */
+.mini-fab:hover,
+.ai-float-btn:hover,
+.btn-continue:hover {
+  background: rgba(37, 99, 235, 0.08);         /* bleu très léger */
+}
+
+/* Active (tap mobile) */
+.mini-fab:active,
+.ai-float-btn:active,
+.btn-continue:active {
+  transform: scale(0.96);
+}
+
+/* Tap mobile */
+.mini-fab:active,
+.ai-float-btn:active,
+.btn-continue:active {
+  transform: scale(0.96);
+}
