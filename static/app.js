@@ -360,11 +360,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // ==============================
-// 💳 PAYWALL V2 (Billing v1)
-// - Essai 1 fois : 5 analyses (save/export OK)
+// 💳 PAYWALL V2 (Billing v2)
+// - Essai 1 fois : 25 analyses (save/export OK+ IA)
 // - Après essai : 3 analyses / jour (save/export OFF)
-// - Packs cumulables : 10 (100 FCFA) / 100 (500 FCFA)
-// - Abonnements : 1000/mois illimité, 10000/an illimité
+// - Packs cumulables : 100 (500 FCFA) / 300 (1000 FCFA)
+// - Abonnements : 2000/mois illimité, 20000/an illimité+IA: 600/ans
 // ==============================
 
 const BILLING_KEY = "aliscan_billing_v2";
