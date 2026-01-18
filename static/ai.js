@@ -103,10 +103,7 @@ function consumeAI() {
   return { ok: true };
 }
 
-/*window.getBilling = getBilling;
-window.setBilling = setBilling;
-window.canUseAI = canUseAI;
-window.consumeAI = consumeAI;*/
+
 
     
 function openHelp(){
@@ -242,14 +239,34 @@ if (helpBtn && helpOverlay && helpClose) {
   }
 
   // Détection simple du prénom
-  function extractName(text){
-    const t = (text || "").trim();
-    let m = t.match(/je m[' ]appelle\s+([A-Za-zÀ-ÿ-]{2,30})/i);
-    if (m) return m[1];
-    m = t.match(/je suis\s+([A-Za-zÀ-ÿ-]{2,30})/i);
-    if (m) return m[1];
+  function extractName(text) {
+  const t = (text || "").trim();
+
+  // 🔒 condition OBLIGATOIRE : intention claire
+  if (!/je m['’]appelle|mon nom est|mon prénom est/i.test(t)) {
     return null;
   }
+
+  let m =
+    t.match(/je m['’]appelle\s+([A-Za-zÀ-ÿ-]{2,30})/i) ||
+    t.match(/mon nom est\s+([A-Za-zÀ-ÿ-]{2,30})/i) ||
+    t.match(/mon prénom est\s+([A-Za-zÀ-ÿ-]{2,30})/i);
+
+  if (!m) return null;
+
+  const name = m[1].trim();
+
+  // 🛑 blacklist stricte
+  const banned = new Set([
+    "comment","ok","oui","non","bonjour","salut","hello","hi",
+    "merci","svp","stp","assistant","bot","user"
+  ]);
+
+  if (banned.has(name.toLowerCase())) return null;
+  if (/\d/.test(name)) return null;
+
+  return name;
+}
   
   // ----------------------------
   // Cache IA (réponses)
