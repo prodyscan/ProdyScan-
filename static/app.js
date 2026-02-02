@@ -1649,7 +1649,11 @@ async function getOcrWorker(setStatusCb) {
     },
   });
 
-  await ocrWorker.loadLanguage("fra+eng");
+
+  // ✅ On charge TOUTES les langues possibles une fois
+  await ocrWorker.loadLanguage("fra+eng+chi_sim");
+
+  // ✅ Init par défaut (Alibaba)
   await ocrWorker.initialize("fra+eng");
 
   await ocrWorker.setParameters({
@@ -2599,17 +2603,654 @@ if (fy != null) {
 
       return { score, label, details };
     }
-    
+
+
+// ==============================
+// 1688 — OCR → champs + score
+// ==============================
+//
+// ✅ Objectif
+// - Extraire des infos fiables spécifiques à 1688 depuis le texte OCR
+// - Calculer un score 0..100 (SANS Alibaba: pas de Verified/TradeAssurance)
+//
+// Utilisation rapide :
+// const s1688 = extract1688Fields(combinedText);
+// const rel1688 = computeReliability1688(s1688);
+//
+
+// ------------------------------
+// Helpers
+// ------------------------------
+function toNumberSafe(v) {
+  if (v == null) return null;
+  const s = String(v)
+    .replace(/,/g, ".")
+    .replace(/[^\d.]/g, "")
+    .trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function normalizePct(x) {
+  // accepte "36%", "36.4", 36.4
+  const n = toNumberSafe(x);
+  if (n == null) return null;
+  return clamp(n, 0, 100);
+}
+
+function normalizeScore5(x) {
+  // score /5 (ex: 4, 4.0, 4/5)
+  const n = toNumberSafe(x);
+  if (n == null) return null;
+  return clamp(n, 0, 5);
+}
+
+// Nettoyage simple du nom boutique (souvent chinois)
+function cleanShopName1688(name) {
+  let s = String(name || "").trim();
+  s = s.replace(/\s{2,}/g, " ");
+  if (s.length > 80) s = s.slice(0, 80).trim();
+  return s;
+}
+
+
+
+function pct(x) {
+  if (x == null) return null;
+  const s = String(x).replace(/\s+/g, "").replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function is1688MarketingLine(line) {
+  return /(红包|最高减|回头率|好评率|评分|折扣|优惠|after coupon|¥)/i.test(line);
+}
+
+// ✅ compact : enlève les espaces ENTRE caractères chinois (CJK)
+// Ex: "慈 溪 市 昕 佑" -> "慈溪市昕佑"
+function compactCJKSpaces(text) {
+  return String(text || "").replace(
+    /([\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])/g,
+    "$1"
+  );
+}
+
+// ==============================
+// 1688 — OCR → champs (PROPRE)
+// ==============================
+function extract1688Fields(ocrText) {
+  const raw = String(ocrText || "");
+  const text = compactCJKSpaces(raw); // ✅ important pour les noms chinois
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const out = {
+    platform: "1688",
+
+    // boutique
+    shop_name_cn: "",
+    years_on_1688: null,
+
+    repurchase_rate_pct: null,
+    service_score_5: null,
+    ontime_delivery_pct: null,
+    positive_review_pct: null,
+
+    // produit (optionnel)
+    product_title: "",
+    price_yuan: null,
+    price_yuan_alt: null,
+    moq: "",
+    delivery_to: "",
+    delivery_days: null,
+
+    _raw: text
+  };
+
+  
+  // 1) Nom boutique chinois
+  const cnNameCandidates = [];
+  
+
+  for (const l of lines) {
+    if (!/[\u4e00-\u9fff]/.test(l)) continue;
+
+    // éviter les lignes stats/marketing
+    if (/店铺/.test(l)) continue;
+    if (/(红包|最高减|回头率|好评率|评分|优惠|折扣)/.test(l)) continue;
+
+    // candidats "nom légal"
+    if (/(商行|有限公司|有限责任公司|公司|工厂|厂|旗舰店|专营店)/.test(l) && l.length >= 6 && l.length <= 60) {
+      cnNameCandidates.push(l);
+    }
+  }
+
+  if (!cnNameCandidates.length) {
+    const m = text.match(/([\u4e00-\u9fff]{6,40}(?:商行|有限公司|公司|工厂|厂|旗舰店|专营店))/);
+    if (m) cnNameCandidates.push(m[1]);
+  }
+
+  if (cnNameCandidates.length) {
+    cnNameCandidates.sort((a, b) => b.length - a.length);
+    out.shop_name_cn = cleanShopName1688(cnNameCandidates[0]);
+  }
+
+  // ------------------------------
+  // 2) Ancienneté : 入驻 17 年
+  // -----------------------------
+  // ------------------------------
+  // 2) Ancienneté boutique 1688 : 入驻6年
+  // ------------------------------
+  {
+    const mYears = text.match(/入驻\s*(\d{1,2})\s*年/);
+    if (mYears) out.years_on_1688 = Number(mYears[1]);
+  }
 
 
 
 
+
+  // 3) Repurchase rates (2 métriques différentes)
+  // ------------------------------
+  // 3) Repurchase rate (1688)
+  // On veut distinguer :
+  // - 店铺回头率 = boutique
+  // - 商品复购率 = produit
+  // Et on garde aussi fallback "Repurchase Rate"
+  // ------------------------------
+  {
+    const pct = (x) => Number(String(x).replace(",", "."));
+
+    // Boutique : 店铺回头率 48%
+    let mShop =
+      text.match(/店铺回头率\s*([0-9]{1,3}(?:[.,]\d{1,2})?)\s*%/);
+
+    // Produit : 商品复购率 35.71%
+    let mProd =
+      text.match(/商品复购率\s*([0-9]{1,3}(?:[.,]\d{1,2})?)\s*%/);
+
+    // Fallback anglais : Repurchase Rate 48%
+    let mAny =
+      text.match(/repurchase\s*rate\s*([0-9]{1,3}(?:[.,]\d{1,2})?)\s*%/i);
+
+    if (mShop) out.shop_repurchase_rate_pct = pct(mShop[1]);
+    if (mProd) out.product_repurchase_rate_pct = pct(mProd[1]);
+
+    // Ton champ historique (utilisé par le score) :
+    // priorité boutique > produit > fallback
+    out.repurchase_rate_pct =
+      out.shop_repurchase_rate_pct != null
+        ? out.shop_repurchase_rate_pct
+        : out.product_repurchase_rate_pct != null
+          ? out.product_repurchase_rate_pct
+          : mAny
+            ? pct(mAny[1])
+            : null;
+  }
+
+     
+  
+  // ------------------------------
+  // 4) Score service : 4分 / 服务评分 4 分
+  // ------------------------------
+  // ------------------------------
+  // 4) Service score (1688) -> 4.5分
+  // ------------------------------
+  {
+    // Exemple : 4.5分
+    let m = text.match(/([0-9](?:[.,]\d)?)\s*分/);
+
+    // Variante : Service Score 4.5
+    if (!m) m = text.match(/service\s*score\s*([0-9](?:[.,]\d)?)\s*/i);
+
+    if (m) out.service_score_5 = Number(String(m[1]).replace(",", "."));
+  }
+  // ------------------------------
+
+  // ------------------------------
+  // 5) On-time delivery rate (1688)
+  // ----------------------------// Livraison à temps (1688)
+  {
+    const m =
+      text.match(/准时发货率\s*([0-9]+(?:[.,]\d+)?)\s*%/) ||
+      text.match(/准时率\s*([0-9]+(?:[.,]\d+)?)\s*%/) ||
+      text.match(/on[-\s]?time\s*delivery\s*rate\s*([0-9]+(?:[.,]\d+)?)\s*%/i);
+
+    if (m) {
+      out.ontime_delivery_pct = Number(m[1].replace(",", "."));
+    }
+  }
+
+  // ------------------------------
+  // ------------------------------
+  // 6) Store positive review rate (1688)
+  // ------------------------------
+  // Avis positifs boutique (1688)
+  {
+    const m =
+      text.match(/店铺好评率\s*([0-9]+(?:[.,]\d+)?)\s*%/) ||
+      text.match(/好评率\s*([0-9]+(?:[.,]\d+)?)\s*%/) ||
+      text.match(/store\s*positive\s*review\s*rate\s*([0-9]+(?:[.,]\d+)?)\s*%/i);
+
+    if (m) {
+      out.positive_review_pct = Number(m[1].replace(",", "."));
+    }
+  }
+  // ------------------------------
+  // 7) Prix : ¥4995 / After coupon ¥4995
+  // ------------------------------
+  {
+    const mAlt = text.match(/after\s+coupon\s*¥\s*([0-9]{1,8})/i);
+    if (mAlt && typeof toNumberSafe === "function") out.price_yuan_alt = toNumberSafe(mAlt[1]);
+    else if (mAlt) out.price_yuan_alt = Number(mAlt[1]);
+
+    const m = text.match(/¥\s*([0-9]{1,8})(?!\s*€)/);
+    if (m && typeof toNumberSafe === "function") out.price_yuan = toNumberSafe(m[1]);
+    else if (m) out.price_yuan = Number(m[1]);
+  }
+
+  // ------------------------------
+  // 8) MOQ : ≥1pc / 1件起批 / 起订量
+  // ------------------------------
+  {
+    let m = text.match(/≥\s*(\d+)\s*pc/i);
+    if (!m) m = text.match(/>=\s*(\d+)\s*pc/i);
+    if (!m) m = text.match(/(\d+)\s*件起批/);
+    if (!m) m = text.match(/起订量\s*[:：]?\s*(\d+)/);
+    if (m) out.moq = String(m[0]).trim();
+  }
+
+  // ------------------------------
+  // 9) Livraison vers : Delivery to HK / 送至xx
+  // ------------------------------
+  {
+    let m = text.match(/delivery\s+to\s+([A-Za-z]{2,20})/i);
+    if (m) out.delivery_to = `Delivery to ${m[1]}`;
+
+    if (!out.delivery_to) {
+      m = text.match(/送至\s*([^\n\r]{1,20})/);
+      if (m) out.delivery_to = `送至 ${m[1].trim()}`;
+    }
+  }
+
+  // ------------------------------
+  // 10) Délai : 35D / 交期xx天
+  // ------------------------------
+  {
+    let m = text.match(/\b(\d{1,3})\s*D\b/i);
+    if (m) out.delivery_days = Number(m[1]);
+
+    if (!out.delivery_days) {
+      m = text.match(/交期\s*([0-9]{1,3})\s*天/);
+      if (m) out.delivery_days = Number(m[1]);
+    }
+  }
+
+  // ------------------------------
+  // 11) Titre produit (ligne longue)
+  // ------------------------------
+  {
+    const longLine = lines.find(l =>
+      l.length >= 25 &&
+      /[A-Za-z]/.test(l) &&
+      !/after coupon|delivery to|service score|repurchase|review rate/i.test(l)
+    );
+    if (longLine) out.product_title = longLine.slice(0, 140).trim();
+  }
+
+
+
+// 🔁 FALLBACK 1688 — valeurs groupées (Repurchase / Service / On-time / Positive)
+if (out.ontime_delivery_pct == null || out.positive_review_pct == null) {
+  // OCR typique : "78% 4分 100% 100%" ou "36% 4.5分 100% 99.5%"
+  const m = text.match(
+    /(\d{1,3})%\s*(\d(?:[.,]\d)?)\s*分?\s*(\d{1,3})%\s*(\d{1,3}(?:[.,]\d)?)%/
+  );
+  if (m) {
+    out.repurchase_rate_pct = Number(String(m[1]).replace(",", "."));
+    out.service_score_5 = Number(String(m[2]).replace(",", "."));
+    out.ontime_delivery_pct = Number(String(m[3]).replace(",", "."));
+    out.positive_review_pct = Number(String(m[4]).replace(",", "."));
+  }
+}
+
+  // 🕒 Ancienneté boutique 1688 (CHAMP OFFICIEL DU SCORE)
+  if (out.years_on_1688 == null) {
+    const mAge = text.match(/入[驻住]\s*(\d+)\s*年/);
+    if (mAge) {
+      out.years_on_1688 = Number(mAge[1]);
+    }
+  }
+  // ------------------------------
+  // Normalisation UI générique (pour ta carte)
+  // ------------------------------
+  out.shop_name = out.shop_name_cn || "";
+  out.shop_rating = out.service_score_5 != null ? out.service_score_5 : null;
+  out.shop_reviews = null;
+
+  if (out.ontime_delivery_pct != null) out.delivery_rate = out.ontime_delivery_pct;
+  if (out.positive_review_pct != null) out.review_rate = out.positive_review_pct;
+
+  // Bornes sécurité
+  if (typeof normalizePct === "function") {
+    if (out.repurchase_rate_pct != null) out.repurchase_rate_pct = normalizePct(out.repurchase_rate_pct);
+    if (out.ontime_delivery_pct != null) out.ontime_delivery_pct = normalizePct(out.ontime_delivery_pct);
+    if (out.positive_review_pct != null) out.positive_review_pct = normalizePct(out.positive_review_pct);
+  } else {
+    // clamp simple si normalizePct n’existe pas
+    const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
+    if (out.repurchase_rate_pct != null) out.repurchase_rate_pct  = clamp(out.repurchase_rate_pct, 0, 100);
+    if (out.ontime_delivery_pct != null) out.ontime_delivery_pct = clamp(out.ontime_delivery_pct, 0, 100);
+    if (out.positive_review_pct != null) out.positive_review_pct = clamp(out.positive_review_pct, 0, 100);
+  }
+
+  // --- Normalisation UI (important) ---
+  out.name = out.shop_name_cn || out.shop_name || "";     // pour pro-name
+  out.country = "CN (Chine)";                             // 1688 = Chine
+  out.shop_rating = out.service_score_5 != null ? out.service_score_5 : null;
+
+  // mets delivery_rate en string avec %
+  if (out.ontime_delivery_pct != null) out.delivery_rate = `${out.ontime_delivery_pct}%`;
+
+  // mets review_rate en string avec %
+  if (out.positive_review_pct != null) out.review_rate = `${out.positive_review_pct}%`;
+  
+  return out;
+}
+// ------------------------------
+// ✅ Score 1688 (0..100) — computeReliability1688
+// ------------------------------
+//
+// Principes :
+// - Pas de Verified/Trade Assurance (Alibaba only)
+// - On score sur : ancienneté, livraison à temps, avis positifs, service, réachat, délai, complétude des données
+//
+function computeReliability1688(supplier1688) {
+  const s = supplier1688 || {};
+  let score = 0;
+  const reasons = [];
+
+  const add = (pts, label) => {
+    score += pts;
+    reasons.push(`${pts >= 0 ? "+" : ""}${pts} ${label}`);
+  };
+
+  // 1) Ancienneté (max 18)
+  const years = toNumberSafe(s.years_on_1688);
+  if (years != null) {
+    let pts = 0;
+    if (years >= 10) pts = 18;
+    else if (years >= 7) pts = 15;
+    else if (years >= 4) pts = 11;
+    else if (years >= 2) pts = 8;
+    else pts = 5;
+    add(pts, `Ancienneté 1688 (${years} an(s))`);
+  } else {
+    add(0, "Ancienneté 1688 non détectée");
+  }
+
+  // 2) Livraison à temps (max 25)
+  const ontime = normalizePct(s.ontime_delivery_pct);
+  if (ontime != null) {
+    let pts = 0;
+    if (ontime >= 99.5) pts = 25;
+    else if (ontime >= 98) pts = 22;
+    else if (ontime >= 95) pts = 18;
+    else if (ontime >= 90) pts = 12;
+    else pts = 6;
+    add(pts, `Livraison à temps (${ontime}%)`);
+  } else {
+    add(0, "Livraison à temps non détectée");
+  }
+
+  // 3) Avis positifs boutique (max 22)
+  const pos = normalizePct(s.positive_review_pct);
+  if (pos != null) {
+    let pts = 0;
+    if (pos >= 99.5) pts = 22;
+    else if (pos >= 98) pts = 19;
+    else if (pos >= 95) pts = 15;
+    else if (pos >= 90) pts = 10;
+    else pts = 5;
+    add(pts, `Avis positifs boutique (${pos}%)`);
+  } else {
+    add(0, "Avis positifs boutique non détectés");
+  }
+
+  // 4) Score service /5 (max 15)
+  const srv = normalizeScore5(s.service_score_5);
+  if (srv != null) {
+    let pts = 0;
+    if (srv >= 4.8) pts = 15;
+    else if (srv >= 4.5) pts = 13;
+    else if (srv >= 4.0) pts = 10;
+    else if (srv >= 3.5) pts = 7;
+    else pts = 4;
+    add(pts, `Score service (${srv}/5)`);
+  } else {
+    add(0, "Score service non détecté");
+  }
+
+  // 5) Taux de réachat (max 12) — 1688 important mais variable selon catégorie
+  const rep = normalizePct(s.repurchase_rate_pct);
+  if (rep != null) {
+    let pts = 0;
+    if (rep >= 60) pts = 12;
+    else if (rep >= 45) pts = 10;
+    else if (rep >= 30) pts = 8;
+    else if (rep >= 20) pts = 6;
+    else pts = 4;
+    add(pts, `Taux de réachat (${rep}%)`);
+  } else {
+    add(0, "Taux de réachat non détecté");
+  }
+
+  // 6) Délai (max 5) — petit bonus si on le voit
+  const days = toNumberSafe(s.delivery_days);
+  if (days != null) {
+    let pts = 0;
+    if (days <= 10) pts = 5;
+    else if (days <= 20) pts = 4;
+    else if (days <= 35) pts = 3;
+    else if (days <= 60) pts = 2;
+    else pts = 1;
+    add(pts, `Délai (${days} jours)`);
+  } else {
+    add(0, "Délai non détecté");
+  }
+
+  // 7) Complétude (max 3) — évite score élevé si OCR vide
+  const fields = [
+    s.shop_name_cn,
+    s.years_on_1688,
+    s.ontime_delivery_pct,
+    s.positive_review_pct,
+    s.service_score_5,
+    s.repurchase_rate_pct
+  ];
+  const filled = fields.filter(v => v != null && String(v).trim() !== "").length;
+  const completenessPts = filled >= 5 ? 3 : filled >= 3 ? 2 : filled >= 2 ? 1 : 0;
+  add(completenessPts, `Complétude des infos (${filled}/6)`);
+
+  score = clamp(Math.round(score), 0, 100);
+
+  let label = "À vérifier";
+  if (score >= 80) label = "Très fiable (1688)";
+  else if (score >= 65) label = "Fiable (1688)";
+  else if (score >= 50) label = "Moyen (1688)";
+  else label = "Risque (1688)";
+
+  return { score, label, reasons, details: reasons };
+}
+
+
+
+
+// ✅ Site OCR (Alibaba / 1688 / Taobao)
+function getOcrLang(site) {
+  const s = (site || "alibaba").toLowerCase();
+
+  // 1688 & Taobao → chinois simplifié + anglais
+  if (s === "1688" || s === "taobao") {
+    return "chi_sim+eng";
+  }
+
+  // Alibaba → français + anglais
+  return "fra+eng"; // ou "eng+fra" si tu préfères
+}
+
+
+
+function isValid1688ShopName(s) {
+  const t = String(s || "").trim();
+
+  if (!/[\u4e00-\u9fff]/.test(t)) return false;
+
+  // ❌ phrases d'avis / marketing
+  if (/[，。！？,.!?\s]/.test(t) && t.length > 10) return false;
+  if (/(包装|发货|速度|快递|服务态度|很好|满意|不错|质量|推荐)/.test(t)) return false;
+  if (/(红包|最高减|优惠|折扣|回头率|好评率|评分)/.test(t)) return false;
+
+  // ✅ vrais suffixes business
+  if (/(公司|有限|商行|旗舰店|专营店|工厂|厂|店)/.test(t)) return true;
+
+  return t.length >= 6 && t.length <= 30;
+}
+
+
+
+
+
+
+
+
+function setSteps(container, steps, activeIndex) {
+  if (!container) return;
+
+  // ✅ IMPORTANT : rendre visible le bloc
+  container.style.display = "block";
+
+  container.innerHTML = "";
+  steps.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.style.opacity = i <= activeIndex ? "1" : "0.4";
+    div.textContent =
+      (i < activeIndex ? "✅ " : i === activeIndex ? "🔄 " : "⏳ ") + s;
+    container.appendChild(div);
+  });
+}
+
+function createProgressSteps() {
+  const steps = [
+    "Image reçue",
+    "Lecture du texte (OCR)…",
+    "Analyse du fournisseur…",
+    "Calcul du score…",
+    "Finalisation…"
+  ];
+
+  const el = document.getElementById("status-steps");
+  let idx = 0;
+
+  setSteps(el, steps, idx);
+
+  return {
+    step(i) {
+      idx = Math.max(0, Math.min(i, steps.length - 1));
+      setSteps(el, steps, idx);
+    },
+    done() {
+      setSteps(el, steps, steps.length - 1);
+    },
+    fail(msg) {
+      if (el) el.innerHTML = "❌ Erreur : " + (msg || "Analyse impossible");
+    }
+  };
+}
+
+// --------------------------------------------------
+// Animation "..."
+let dotsInterval;
+
+function startDots() {
+  const dots = document.getElementById("dots");
+  if (!dots) return;
+  let i = 0;
+  dotsInterval = setInterval(() => {
+    dots.textContent = ".".repeat(i % 4);
+    i++;
+  }, 500);
+}
+
+function stopDots() {
+  clearInterval(dotsInterval);
+}
+
+
+
+function startOcrHint() {
+  const hint = document.getElementById("ocr-hint");
+  if (!hint) return;
+
+  hint.style.display = "block";
+  hint.classList.add("shimmer"); // active l'effet lumière (CSS)
+  if (typeof startDots === "function") startDots();
+}
+
+function stopOcrHint() {
+  const hint = document.getElementById("ocr-hint");
+  if (!hint) return;
+
+  if (typeof stopDots === "function") stopDots();
+  hint.classList.remove("shimmer");
+  hint.style.display = "none";
+}
+
+function startOcrHint(msg) {
+  const hint = document.getElementById("ocr-hint");
+  const txt  = document.getElementById("ocr-hint-text");
+
+  if (txt) txt.textContent = msg || "⏳ Ceci peut prendre un peu de temps pour un meilleur résultat";
+  if (hint) {
+    hint.style.display = "block";
+    hint.classList.add("shimmer");
+  }
+
+  startDots?.();
+}
+
+function stopOcrHint() {
+  const hint = document.getElementById("ocr-hint");
+  if (hint) {
+    hint.style.display = "none";
+    hint.classList.remove("shimmer");
+  }
+  stopDots?.();
+}
   // =========================================
   // 📸 OCR : lecture + résumé automatique (1 à 5 captures)
   // =========================================
 if (ocrBtn && ocrInput) {
-    ocrBtn.addEventListener("click", async () => {
-      const runId = ++_ocrRunId;
+      ocrBtn.addEventListener("click", async () => {
+     
+        stopOcrHint(); // cache au début au cas où
+     const runId = ++_ocrRunId;
+     const progressSteps = createProgressSteps();
+        
+     progressSteps.step(0); //
+
+     
+
+     const selectedSite =
+          (document.getElementById("ocr-site-select")?.value || "alibaba").toLowerCase();
+
+    console.log("🌐 Site sélectionné :", selectedSite);
+
+      
 
       const check = canUseOcr();
       if (!check.ok) { toast(paywallMsg()); return; }
@@ -2617,8 +3258,9 @@ if (ocrBtn && ocrInput) {
       hideOcrExportButtons();
 
       if (!window.Tesseract) {
-        safeSetText(ocrStatus, "❌ Analyse impossible (OCR non chargé)");
+        safeSetText(ocrStatus, "❌ Analyse impossible (App non chargé)");
         setSaveSectionVisible(false);
+        progressSteps?.fail("App non chargé");
         return;
       }
 
@@ -2628,7 +3270,10 @@ if (ocrBtn && ocrInput) {
       if (!total) { toast("Choisis 1 à 5 images d’abord."); return; }
       if (total > 5) {
         safeSetText(ocrStatus, "⚠️ Maximum 5 captures.");
+        // ✅ Ici seulement : on sait qu’on va lancer une vraie OCR
+        startOcrHint("⏳ Ceci peut prendre un peu de temps pour un meilleur résultat");
         setSaveSectionVisible(false);
+        progressSteps?.fail("Maximum 5 images autorisées");
         return;
       }
 
@@ -2638,6 +3283,8 @@ if (ocrBtn && ocrInput) {
       safeSetText(ocrRawEl, "");
       safeHide(ocrRawEl);
       safeHide(toggleOcrBtn);
+      
+      
 
       let combinedText = "";
       let combinedRawText = "";
@@ -2648,6 +3295,8 @@ if (ocrBtn && ocrInput) {
 
       try {
         let lastProg = 0;
+
+        //progressSteps.step(1); // Lecture du texte (OCR)…
 
         const worker = await getOcrWorker((p) => {
           if (runId !== _ocrRunId) return;
@@ -2667,7 +3316,12 @@ if (ocrBtn && ocrInput) {
             `⏳ Lecture… (${currentIndex + 1}/${total}) - ${prog}%`
           );
         });
-
+// sélection de la langue OCR
+        // sélection de la langue OCR (selon le sélecteur)
+        const lang = getOcrLang(selectedSite); // ✅ IMPORTANT : passer selectedSite
+        await worker.initialize(lang);
+        console.log("🧠 OCR langue utilisée :", lang);
+        
             for (let i = 0; i < total; i++) {
               currentIndex = i;
               lastProg = 0; // ✅ OBLIGATOIRE
@@ -2681,9 +3335,17 @@ if (ocrBtn && ocrInput) {
               
             
           const rawText = String(res?.data?.text || "").trim();
+          combinedRawText += `\n\n--- IMAGE ${i + 1}/${total} ---\n` + rawText;
 
-          const tmpSupplier = parseOcrSupplier(rawText);
-          const currentName = cleanSupplierName(tmpSupplier?.name || "");
+              let currentName = "";
+
+              if (selectedSite === "1688") {
+                const tmp = extract1688Fields(rawText);
+                currentName = cleanShopName1688(tmp?.shop_name_cn || tmp?.shop_name || "");
+              } else {
+                const tmp = parseOcrSupplier(rawText);
+                currentName = cleanSupplierName(tmp?.name || "");
+              }
 
           if (currentName) {
             if (!refSupplierName) refSupplierName = currentName;
@@ -2692,8 +3354,11 @@ if (ocrBtn && ocrInput) {
               const b = vendorKey(currentName);
               const sim = similarity(a, b);
               if (a && b && sim < 0.70) {
-                safeSetText(ocrStatus, "⚠️ Vendeurs différents détectés. Mets seulement le même fournisseur.");
+                safeSetText(ocrStatus,
+                  "⚠️ Vendeurs différents détectés. Mets seulement le même fournisseur."
+                );
                 setSaveSectionVisible(false);
+                progressSteps?.fail("Vendeurs différents détectés");
                 return;
               }
             }
@@ -2706,57 +3371,84 @@ if (ocrBtn && ocrInput) {
         }
 
         safeSetText(ocrStatus, `✅ Lecture terminée (${total}/${total}) - 100%`);
+        // ✅ OCR terminé → on passe à l'analyse fournisseur
+        stopOcrHint(); 
+        progressSteps.step(2); // Analyse du fournisseur…
 
         if (!combinedText.trim()) {
           safeSetText(ocrStatus, "⚠️ Aucun texte détecté sur les captures.");
           setSaveSectionVisible(false);
+          stopOcrHint();
+        progressSteps?.fail(msg)
           return;
         }
 
-        if (!isProbablyAlibabaOcr(combinedText)) {
-          safeSetText(ocrStatus, "⚠️ Analyse impossible. Essaie une capture plus nette (même vendeur).");
-          setSaveSectionVisible(false);
-          return;
+        // ✅ on réutilise selectedSite (déjà défini)
+        if (selectedSite === "alibaba") {
+          if (!isProbablyAlibabaOcr(combinedText)) {
+            safeSetText(ocrStatus, "⚠️ Analyse impossible. Essaie une capture plus nette (même vendeur).");
+            setSaveSectionVisible(false);
+                 progressSteps?.fail(msg)
+            return;
+          }
         }
+// 1688 / taobao => pas de blocage ici
 
         safeSetText(ocrStatus, "⏳ Génération du résumé…");
-        
+
         
           
   
-      // ✅ 1. ON CRÉE LE FOURNISSEUR D’ABORD
-      const supplier = parseOcrSupplier(combinedText);
-      // ✅ AVIS BOUTIQUE — nombre d’avis
-      const shopCount = extractShopReviewsCount(combinedText); 
-        //finB
-      if (shopCount != null) {
-  supplier.shop_reviews = shopCount;
-}
+     
 
-// ✅ AVIS BOUTIQUE — note (4.8 / 5)
-      const shopRating = extractShopRatingFromSupplierBlock(combinedText);
-      if (shopRating != null) {
-  supplier.shop_rating = shopRating;
-}
+        // ✅ selectedSite déjà défini au début du click (NE PAS redéclarer ici)
+        
+        
+        let supplier;
+        let rel;
 
-      // ✅ 2. ENSUITE on extrait les avis boutique (nombre)
-      
-      if (supplier.shop_rating == null && shopRating != null) {
-        supplier.shop_rating = shopRating;
-      }
-      // ✅ 3. On injecte si trouvé
-      if (shopCount != null) {
-        supplier.shop_reviews = shopCount;
-      }
-      // ✅ Avis boutique (fallback si certains écrans n'affichent que le nombre)
-      
-      if (supplier.shop_reviews == null && shopCount != null) {
-        supplier.shop_reviews = shopCount;
-      }
 
-      // 6) Fiabilité + UI pro
-      const rel = computeReliability(supplier);
-      const displayScore = Math.min(rel.score, 98);
+        if (selectedSite === "1688") {
+  supplier = extract1688Fields(combinedText);
+        progressSteps?.step(3); // 🧮 Calcul du score…
+
+        rel = computeReliability1688(supplier);
+
+
+        } else if (selectedSite === "taobao") {
+  supplier = typeof extractTaobaoFields === "function"
+    ? 
+        extractTaobaoFields(combinedText)
+    : parseOcrSupplier(combinedText);
+       // progressSteps?.step(3); // 🧮 Calcul du score…
+
+        rel = typeof computeReliabilityTaobao === "function"
+    ? 
+
+        computeReliabilityTaobao(supplier)
+    : computeReliability(supplier);
+
+
+        } else {
+  supplier = parseOcrSupplier(combinedText);
+
+
+        const shopCount = extractShopReviewsCount(combinedText);
+
+        if (shopCount != null) supplier.shop_reviews = shopCount;
+          
+
+        const shopRating = extractShopRatingFromSupplierBlock(combinedText);
+        if (shopRating != null) supplier.shop_rating = shopRating;
+        progressSteps?.step(3); // 🧮 Calcul du score…
+
+        rel = computeReliability(supplier);
+        }
+        
+
+        const displayScore = Math.min(rel.score, 98);
+
+        console.log("SITE =", selectedSite);
 
       // ===== UI PRO (ta card Pro) =====
       const proCard = document.getElementById("pro-card");
@@ -2787,27 +3479,53 @@ if (ocrBtn && ocrInput) {
         if (elBar) elBar.style.width = Math.max(0, Math.min(100, score)) + "%";
         
         animateProBadge(score);
+        // ✅ FIN DU PROCESSUS (score affiché)
+        progressSteps.done();
+               
+        stopDots();
+
+        const hint = document.getElementById("ocr-hint");
+        if (hint) hint.style.display = "none";
+        
         
         const elName    = document.getElementById("pro-name");
         const elCountry = document.getElementById("pro-country");
         const elDelivery= document.getElementById("pro-delivery");
         const elRating  = document.getElementById("pro-rating");
-        const supplier = parseOcrSupplier(combinedText);
+        const supplierUI = supplier; // ✅ supplier déjà calculé plus haut selon le site
 
-        const shopCount = extractShopReviewsCount(combinedText);
-        if (supplier.shop_reviews == null && shopCount != null) supplier.shop_reviews = shopCount;
+        // Nom
+        if (elName) {
+          elName.textContent =
+            supplierUI.shop_name ||
+            (supplierUI.name ? prettyName(supplierUI.name) : "—");
+        }
 
-        const shopRating = extractShopRatingFromSupplierBlock(combinedText);
-        if (supplier.shop_rating == null && shopRating != null) supplier.shop_rating = shopRating;
-        if (elName) elName.textContent = supplier.name ? prettyName(supplier.name) : "—";
-        if (elCountry) elCountry.textContent = supplier.country || "—";
-        if (elDelivery) elDelivery.textContent = supplier.delivery_rate || "—";
+        // Pays (souvent vide sur 1688)
+        if (elCountry) {
+          elCountry.textContent = supplierUI.country || "—";
+        }
 
-        const ratingText =
-          supplier.rating
-            ? `${supplier.rating}/5${supplier.reviews ? ` (${supplier.reviews} avis)` : ""}`
-            : "Aucun avis";
-        if (elRating) elRating.textContent = ratingText;
+        // Livraison (1688: delivery_rate = ontime_delivery_pct)
+        if (elDelivery) {
+          const d = supplierUI.delivery_rate;
+          if (d == null || d === "") elDelivery.textContent = "—";
+          else {
+            const s = String(d).trim();
+            elDelivery.textContent = s.includes("%") ? s : `${s}%`;
+          }
+        }
+
+        // Avis / note (1688: shop_rating ; Alibaba: rating)
+        if (elRating) {
+          const v =
+            supplierUI.shop_rating != null
+              ? `${supplierUI.shop_rating}/5`
+              : supplierUI.rating
+                ? `${supplierUI.rating}/5${supplierUI.reviews ? ` (${supplierUI.reviews} avis)` : ""}`
+                : "Aucun avis";
+          elRating.textContent = v;
+        }
 
         const ul = document.getElementById("pro-details");
         if (ul) {
@@ -2836,69 +3554,150 @@ if (ocrBtn && ocrInput) {
         }
       }
       // ===== /UI PRO =====
+            // =======================
+            // RÉSUMÉ FOURNISSEUR
+            // =======================
 
-      // 7) Résumé (COMPLET comme dans ton code)
-      const resumeLines = [];
 
-      if (supplier.name) resumeLines.push(`Fournisseur : ${prettyName(supplier.name)}`);
-      if (Number(supplier.shop_reviews) > 0) {
-        resumeLines.push(`Avis boutique : ${supplier.shop_reviews}`);
-      }
 
-      if (supplier.product_rating != null) resumeLines.push(`Note produit : ${supplier.product_rating}/5`);
-      if (supplier.product_reviews != null) resumeLines.push(`Avis produit : ${supplier.product_reviews}`);
 
-      if (supplier.shop_rating != null) resumeLines.push(`Note boutique : ${supplier.shop_rating}/5`);
+        const resumeLines = [];
 
-      if (supplier.company_type) resumeLines.push(`Type : ${supplier.company_type}`);
+        if (selectedSite === "1688") {
+          // ===== RÉSUMÉ 1688 (STRICT & FIABLE) =====
 
-      if (supplier.rating) {
-        let l = `Note : ${supplier.rating}/5`;
-        if (supplier.reviews) l += ` (${supplier.reviews} avis)`;
-        resumeLines.push(l);
-      }
+          if (supplier.shop_name_cn && isValid1688ShopName(supplier.shop_name_cn)) {
+            resumeLines.push(`Boutique : ${supplier.shop_name_cn}`);
+          }
 
-      if (supplier.sold) resumeLines.push(`Vendus : ${supplier.sold}`);
-      if (supplier.product_moq) resumeLines.push(`Commande minimale : ${supplier.product_moq}`);
-      if (supplier.product_sample_price) resumeLines.push(`Prix échantillon : ${supplier.product_sample_price}`);
+          if (supplier.years_on_1688 != null) {
+            resumeLines.push(`Ancienneté 1688 : ${supplier.years_on_1688} an(s)`);
+          }
 
-      if (supplier.delivery_rate) resumeLines.push(`Taux de livraison : ${supplier.delivery_rate}`);
-      if (supplier.response_time) resumeLines.push(`Temps de réponse : ${supplier.response_time}`);
+          if (supplier.service_score_5 != null) {
+            resumeLines.push(`Score service : ${supplier.service_score_5}/5`);
+          }
 
-      if (supplier.country) resumeLines.push(`Pays : ${supplier.country}`);
+          if (supplier.ontime_delivery_pct != null) {
+            resumeLines.push(`Livraison à temps : ${supplier.ontime_delivery_pct}%`);
+          }
 
-      if (supplier.years_active) resumeLines.push(`Ancienneté Alibaba : ${supplier.years_active} an(s)`);
-      if (supplier.founded_year) resumeLines.push(`Année de fondation : ${supplier.founded_year}`);
-      if (supplier.factory_size) resumeLines.push(`Superficie : ${supplier.factory_size}`);
-      if (supplier.employees) resumeLines.push(`Employés : ${supplier.employees}`);
+          if (supplier.positive_review_pct != null) {
+            resumeLines.push(`Avis positifs boutique : ${supplier.positive_review_pct}%`);
+          }
 
-      if (supplier.personalization) resumeLines.push(`Personnalisation : ${supplier.personalization}`);
+          // ⚠️ IMPORTANT : on affiche UN SEUL repurchase rate
+          // 👉 priorité : boutique > produit
 
-      if (supplier.certification_details?.length) {
-        const certs = supplier.certification_details.filter((c) => {
-          if (c.type === "Certificate of Conformity" && !c.number) return false;
-          return true;
-        });
+            // Repurchase : afficher boutique + produit si dispo
+            if (supplier.shop_repurchase_rate_pct != null)
+              resumeLines.push(`Taux de réachat boutique : ${supplier.shop_repurchase_rate_pct}%`);
 
-        certs.forEach((c) => {
-          if (c.number) resumeLines.push(`Certificat ${c.type} : ${c.number}`);
-          else resumeLines.push(`Certificat : ${c.type}`);
-        });
-      } else if (supplier.certifications?.length) {
-        resumeLines.push(`Certifications : ${supplier.certifications.join(" • ")}`);
-      }
+            if (supplier.product_repurchase_rate_pct != null)
+              resumeLines.push(`Taux de réachat produit : ${supplier.product_repurchase_rate_pct}%`);
 
-      if (supplier.verified) resumeLines.push("Fournisseur vérifié : Oui");
-      if (supplier.trade_assurance) resumeLines.push("Trade Assurance : Oui");
+            // fallback ancien champ
+            if (supplier.shop_repurchase_rate_pct == null && supplier.product_repurchase_rate_pct == null && supplier.repurchase_rate_pct != null)
+              resumeLines.push(`Taux de réachat : ${supplier.repurchase_rate_pct}%`);
 
-      safeSetText(
-        ocrResumeEl,
-        "----- Résumé détecté -----\n" +
-          (resumeLines.length
-            ? resumeLines.join("\n")
-            : "Aucune information exploitable.")
-      );
 
+
+          if (supplier.price_yuan != null) {
+            resumeLines.push(`Prix : ¥${supplier.price_yuan}`);
+          }
+
+          if (supplier.moq) {
+            resumeLines.push(`MOQ : ${supplier.moq}`);
+          }
+
+          if (supplier.delivery_days != null) {
+            resumeLines.push(`Délai : ${supplier.delivery_days} jours`);
+          }
+
+        } else {
+          // ===== RÉSUMÉ ALIBABA (TON CODE EXISTANT) =====
+          if (supplier.name)
+            resumeLines.push(`Fournisseur : ${prettyName(supplier.name)}`);
+
+          if (Number(supplier.shop_reviews) > 0)
+            resumeLines.push(`Avis boutique : ${supplier.shop_reviews}`);
+
+          if (supplier.product_rating != null)
+            resumeLines.push(`Note produit : ${supplier.product_rating}/5`);
+
+          if (supplier.product_reviews != null)
+            resumeLines.push(`Avis produit : ${supplier.product_reviews}`);
+
+          if (supplier.shop_rating != null)
+            resumeLines.push(`Note boutique : ${supplier.shop_rating}/5`);
+        }
+
+        // ===== INFOS COMMUNES (1688 + Alibaba) =====
+
+        if (supplier.company_type)
+          resumeLines.push(`Type : ${supplier.company_type}`);
+
+        if (supplier.rating) {
+          let l = `Note : ${supplier.rating}/5`;
+          if (supplier.reviews) l += ` (${supplier.reviews} avis)`;
+          resumeLines.push(l);
+        }
+
+        if (supplier.sold)
+          resumeLines.push(`Vendus : ${supplier.sold}`);
+
+        if (supplier.product_moq)
+          resumeLines.push(`Commande minimale : ${supplier.product_moq}`);
+
+        if (supplier.product_sample_price)
+          resumeLines.push(`Prix échantillon : ${supplier.product_sample_price}`);
+
+        if (supplier.delivery_rate)
+          resumeLines.push(`Taux de livraison : ${supplier.delivery_rate}`);
+
+        if (supplier.response_time)
+          resumeLines.push(`Temps de réponse : ${supplier.response_time}`);
+
+        if (supplier.country)
+          resumeLines.push(`Pays : ${supplier.country}`);
+
+        if (supplier.years_active)
+          resumeLines.push(`Ancienneté Alibaba : ${supplier.years_active} an(s)`);
+
+        if (supplier.founded_year)
+          resumeLines.push(`Année de fondation : ${supplier.founded_year}`);
+
+        if (supplier.factory_size)
+          resumeLines.push(`Superficie : ${supplier.factory_size}`);
+
+        if (supplier.employees)
+          resumeLines.push(`Employés : ${supplier.employees}`);
+
+        if (supplier.personalization)
+          resumeLines.push(`Personnalisation : ${supplier.personalization}`);
+
+        if (supplier.certification_details?.length) {
+          supplier.certification_details.forEach((c) => {
+            if (c.number)
+              resumeLines.push(`Certificat ${c.type} : ${c.number}`);
+            else
+              resumeLines.push(`Certificat : ${c.type}`);
+          });
+        } else if (supplier.certifications?.length) {
+          resumeLines.push(`Certifications : ${supplier.certifications.join(" • ")}`);
+        }
+
+        if (supplier.verified)
+          resumeLines.push("Fournisseur vérifié : Oui");
+
+        if (supplier.trade_assurance)
+          resumeLines.push("Trade Assurance : Oui");
+
+
+
+
+
+      
       // 8) Texte brut + bouton
       safeSetText(ocrRawEl, combinedRawText);
       safeShow(toggleOcrBtn);
@@ -2917,16 +3716,21 @@ if (ocrBtn && ocrInput) {
       console.log("SUPPLIER =", supplier);
       // IMPORTANT : snapshot global pour le bouton Enregistrer
 
-      window.lastOcrSnapshot = {
-  supplierName: supplier?.name ?  prettyName(supplier.name) : "",
-  score: rel?.score ?? null,
-  label: rel?.label || "",
-  resumeText: (ocrResumeEl && ocrResumeEl.textContent)
-    ? ocrResumeEl.textContent
-    : "",
-  rawText: combinedRawText || "",
-  supplier: supplier || null
-};
+        const displaySupplierName =
+          selectedSite === "1688"
+            ? (supplier.shop_name_cn || supplier.shop_name || "")
+            : (supplier?.name ? prettyName(supplier.name) : "");
+
+        window.lastOcrSnapshot = {
+          supplierName: displaySupplierName,
+          score: rel?.score ?? null,
+          label: rel?.label || "",
+          resumeText: (ocrResumeEl && ocrResumeEl.textContent)
+            ? ocrResumeEl.textContent
+            : "",
+          rawText: combinedRawText || "",
+          supplier: supplier || null
+        };
     /*safeSetText(ocrStatus, "✅ Analyse terminée");
       setSaveSectionVisible(true);
       updateOcrExportButtons();*/   // ✅ affiche seulement si autorisé + si snapshot existe
@@ -2969,7 +3773,7 @@ if (ocrBtn && ocrInput) {
     
  
     // ✅ OCR terminé avec succès → on consomme UNE SEULE FOIS
-     
+     /*
 
     } catch (err) {
       console.error("ANALYSE ERROR:", err);
@@ -2978,11 +3782,29 @@ if (ocrBtn && ocrInput) {
         (err && (err.message || (err.stack ? String(err.stack) : ""))) ||
         String(err) ||
         "Erreur inconnue";
+        stopOcrHint();
 
       safeSetText(ocrStatus, "❌ Analyse impossible. Détail: " + msg);
       setSaveSectionVisible(false);
       return;
-    }
+    }*/
+
+
+    } catch (err) {
+  console.error("ANALYSE ERROR:", err);
+
+  const msg =
+    (err && (err.message || (err.stack ? String(err.stack) : ""))) ||
+    String(err) ||
+    "Erreur inconnue";
+
+  stopOcrHint(); // ✅ stop toujours l'animation ici
+
+  safeSetText(ocrStatus, "❌ Analyse impossible. Détail: " + msg);
+  setSaveSectionVisible(false);
+  progressSteps?.fail(msg);
+  return;
+}
   });
 }
 
@@ -3000,6 +3822,7 @@ const ocrNotesInput = document.getElementById("ocr-note");       // textarea not
 const ocrSaveBtn    = document.getElementById("ocr-save-btn");
 const ocrSaveCancel = document.getElementById("ocr-save-cancel");
 const ocrSaveMsg    = document.getElementById("ocr-save-msg");
+
 
 const ocrRecordsListEl = document.getElementById("ocr-records-list");
 const ocrClearBtn      = document.getElementById("ocr-clear-btn");
@@ -3263,7 +4086,7 @@ if (ocrSaveBtn) {
     try {
       const snap = window.lastOcrSnapshot;
       if (!snap) {
-        if (ocrSaveMsg) ocrSaveMsg.textContent = "⚠️ Fais une analyse OCR avant d’enregistrer.";
+        if (ocrSaveMsg) ocrSaveMsg.textContent = "⚠️ Fais une analyse avant d’enregistrer.";
         return;
       }
 

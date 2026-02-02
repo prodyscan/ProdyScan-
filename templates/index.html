@@ -267,6 +267,17 @@
   Importer 1 à 5 captures du <strong>même fournisseur</strong> (profil, certificats, avis).<br>
   ⚠️ Évite de mélanger plusieurs vendeurs pour un résultat fiable.
      </p>
+
+    <!-- Sélecteur de site -->
+    <div class="form-group">
+      <label class="small">Site :</label>
+      <select id="ocr-site-select" class="primary-input">
+        <option value="alibaba">Alibaba</option>
+        <option value="1688">1688</option>
+       <!-- <option value="taobao">Taobao</option>-->
+      </select>
+    </div>
+
     
     <div class="actions-row">
       <button id="ocr-btn" class="primary-btn">Analyser images</button>
@@ -277,6 +288,16 @@
     </div>
 
     <p id="ocr-status" class="hint small"></p>
+    <p id="ocr-hint" class="hint small shimmer" style="display:none;">
+      <span id="ocr-hint-text">⏳ Ceci peut prendre un peu de temps pour un meilleur résultat</span>
+      <span id="dots"></span>
+    </p>
+    
+
+    
+
+
+    
     <div id="pro-card" class="pro-card" hidden>
   <div class="pro-head">
     <div class="pro-title">Résultat analyse</div>
@@ -876,7 +897,7 @@
     </footer>
     <!-- Mini bouton Alibaba (toujours visible) -->
     <button id="mini-alibaba-btn" class="mini-fab" type="button" title="Ouvrir Alibaba">
-  Voir Alibaba
+      🔗 Voir Alibaba
     </button>
     <button class="ai-float-btn" onclick="window.location.href='/ia'">
   🧠 IA
