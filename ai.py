@@ -1,22 +1,18 @@
 import os
 import re
+import json
+import requests
 from typing import Optional, Dict, Any, List
 
-from huggingface_hub import InferenceClient
+# -----------------------------
+# Config Mistral
+# -----------------------------
+MISTRAL_API_KEY = (os.getenv("MISTRAL_API_KEY") or "").strip()
+MISTRAL_MODEL = (os.getenv("MISTRAL_MODEL") or "mistral-small-latest").strip()
+MISTRAL_URL = (os.getenv("MISTRAL_URL") or "https://api.mistral.ai/v1/chat/completions").strip()
 
 # -----------------------------
-# Config
-# -----------------------------
-HF_TOKEN = (os.getenv("HF_TOKEN") or "").strip()
-MODEL_ID = (os.getenv("QWEN_MODEL_ID") or "Qwen/Qwen2.5-7B-Instruct").strip()
-
-client = InferenceClient(
-    model=MODEL_ID,
-    token=HF_TOKEN if HF_TOKEN else None
-)
-
-# -----------------------------
-# Prompt (renforcé)
+# Prompt (optimisé Mistral)
 # -----------------------------
 SYSTEM_PROMPT = """
 You are AliScan Assistant.
@@ -24,18 +20,16 @@ You are AliScan Assistant.
 AliScan is an INDEPENDENT analysis application.
 AliScan is NOT affiliated with Alibaba.
 
-IMPORTANT:
-- Alibaba = marketplace
-- AliScan = independent analysis app that analyzes USER-PROVIDED data.
+Hard rules:
+- Never claim AliScan is owned by, built by, or affiliated with Alibaba.
+- Never invent capabilities (live web browsing, access to Alibaba systems, real-time verification, notifications, internal databases).
+- Use ONLY the user-provided data: text message, OCR text, cost/margin JSON, and user memory.
 
-YOU MUST NOT say AliScan is from Alibaba.
-YOU MUST NOT invent features (live price search, notifications, access Alibaba systems, etc).
-
-CONVERSATION RULE:
+Conversation:
 - Do NOT greet again after the first assistant message.
 - Continue naturally from prior context.
 
-LANGUAGE RULE (STRICT):
+Language (strict):
 - If the user writes in French -> respond ONLY in French.
 - Never switch language unless explicitly asked.
 """.strip()
@@ -61,16 +55,15 @@ LEGAL_CORRECTION_FR = (
 # Helpers
 # -----------------------------
 def sanitize_answer(answer: str) -> str:
-        ans = (answer or "").strip()
-        lower = ans.lower()
+    ans = (answer or "").strip()
+    lower = ans.lower()
 
-        # ⚠️ Corriger UNIQUEMENT si AliScan est concerné
-        if "aliscan" in lower:
-            for phrase in FORBIDDEN_PHRASES:
-                if phrase in lower:
-                    return LEGAL_CORRECTION_FR
+    if "aliscan" in lower:
+        for phrase in FORBIDDEN_PHRASES:
+            if phrase in lower:
+                return LEGAL_CORRECTION_FR
 
-        return ans
+    return ans
 
 def _normalize_language(lang: Optional[str]) -> str:
     if not lang:
@@ -89,23 +82,19 @@ def _sanitize_history_messages(
 ) -> List[Dict[str, str]]:
     if not messages:
         return []
-
     cleaned: List[Dict[str, str]] = []
     for m in messages[-max_items:]:
         if not isinstance(m, dict):
             continue
         role = (m.get("role") or "").strip().lower()
         content = m.get("content")
-
         if role not in ("user", "assistant"):
             continue
         if not isinstance(content, str):
             continue
-
         content = content.strip()
         if not content:
             continue
-
         cleaned.append({"role": role, "content": content[:max_chars_each]})
     return cleaned
 
@@ -119,41 +108,60 @@ def _build_user_payload(
     parts: List[str] = []
 
     if user_memory:
-        parts.append("[USER_MEMORY]\n" + str(user_memory))
+        parts.append("[USER_MEMORY]\n" + json.dumps(user_memory, ensure_ascii=False))
 
     if ocr_text:
         parts.append("[OCR_TEXT]\n" + ocr_text.strip())
 
     if cost_json:
-        parts.append("[COST_DATA]\n" + str(cost_json))
+        parts.append("[COST_DATA]\n" + json.dumps(cost_json, ensure_ascii=False))
 
     if margin_json:
-        parts.append("[MARGIN_DATA]\n" + str(margin_json))
+        parts.append("[MARGIN_DATA]\n" + json.dumps(margin_json, ensure_ascii=False))
 
     parts.append("[USER_MESSAGE]\n" + (message or "").strip())
     return "\n\n".join(parts)
 
 def _strip_repeated_greeting(answer: str, has_history: bool) -> str:
-    """
-    Si on a déjà un historique, évite "Bonjour" au début.
-    (petite rustine qui marche très bien en prod)
-    """
     if not has_history:
         return answer
-
     a = answer.lstrip()
-    # supprime "Bonjour ..." en tout début
     a = re.sub(r"^(bonjour|bonsoir|salut)\s*[!.,:–-]*\s*", "", a, flags=re.I)
     return a.strip()
 
+def _mistral_chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str:
+    if not MISTRAL_API_KEY:
+        raise RuntimeError("Missing MISTRAL_API_KEY")
+
+    r = requests.post(
+        MISTRAL_URL,
+        headers={
+            "Authorization": f"Bearer {MISTRAL_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": MISTRAL_MODEL,
+            "messages": messages,
+            "temperature": float(temperature),
+            "max_tokens": int(max_tokens),
+        },
+        timeout=60
+    )
+
+    if not r.ok:
+        raise RuntimeError(f"Mistral HTTP {r.status_code}: {r.text[:500]}")
+
+    data = r.json()
+    return (data["choices"][0]["message"]["content"] or "").strip()
+
 # -----------------------------
-# Public function
+# Public function (on garde le nom pour éviter de modifier app.py)
 # -----------------------------
 def ask_qwen(
     message: str,
     language: str = "auto",
-    messages: Optional[List[Dict[str, Any]]] = None,        # ✅ mémoire courte
-    user_memory: Optional[Dict[str, Any]] = None,           # ✅ mémoire long terme
+    messages: Optional[List[Dict[str, Any]]] = None,        # mémoire courte
+    user_memory: Optional[Dict[str, Any]] = None,           # mémoire long terme
     ocr_text: Optional[str] = None,
     cost_json: Optional[Dict[str, Any]] = None,
     margin_json: Optional[Dict[str, Any]] = None,
@@ -174,52 +182,15 @@ def ask_qwen(
     chat_messages.append({"role": "user", "content": user_payload})
 
     try:
-        completion = client.chat_completion(
-            messages=chat_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        answer = completion.choices[0].message["content"]
-
+        answer = _mistral_chat(chat_messages, temperature=temperature, max_tokens=max_tokens)
         answer = sanitize_answer(answer)
         answer = _strip_repeated_greeting(answer, has_history)
-
-        return {"answer": answer, "model": MODEL_ID}
+        return {"answer": answer, "model": MISTRAL_MODEL}
 
     except Exception as e:
-        # fallback text_generation
-        try:
-            prompt = system
-            if history:
-                hist_txt = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in history])
-                prompt += "\n\n" + hist_txt
-            prompt += "\n\n" + user_payload + "\n\nAssistant:"
-
-            out = client.text_generation(
-                prompt,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                do_sample=True,
-                return_full_text=False,
-            )
-
-            if isinstance(out, str):
-                answer = out
-            elif isinstance(out, dict) and "generated_text" in out:
-                answer = out["generated_text"]
-            else:
-                answer = str(out)
-
-            answer = sanitize_answer(answer)
-            answer = _strip_repeated_greeting(answer, has_history)
-
-            return {"answer": answer.strip(), "model": MODEL_ID}
-
-        except Exception as e2:
-            return {
-                "error": "⏳ Optimisation en cours pour un meilleur résultat… Merci de réessayer dans quelques instants.",
-                "detail": str(e),
-                "detail2": str(e2),
-                "model": MODEL_ID,
-                "has_token": bool(HF_TOKEN),
-            }
+        return {
+            "error": "⏳ Optimisation en cours pour un meilleur résultat… Merci de réessayer dans quelques instants.",
+            "detail": str(e),
+            "model": MISTRAL_MODEL,
+            "has_key": bool(MISTRAL_API_KEY),
+        }
