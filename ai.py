@@ -5,33 +5,35 @@ import requests
 from typing import Optional, Dict, Any, List
 
 # -----------------------------
-# Config Mistral
+# Config (Render / Github)
 # -----------------------------
 MISTRAL_API_KEY = (os.getenv("MISTRAL_API_KEY") or "").strip()
-MISTRAL_MODEL = (os.getenv("MISTRAL_MODEL") or "mistral-small-latest").strip()
+MODEL_ID = (os.getenv("MISTRAL_MODEL") or "mistral-small-latest").strip()
 MISTRAL_URL = (os.getenv("MISTRAL_URL") or "https://api.mistral.ai/v1/chat/completions").strip()
 
 # -----------------------------
 # Prompt (optimisé Mistral)
 # -----------------------------
 SYSTEM_PROMPT = """
-You are AliScan Assistant.
+Tu es AliScan Assistant.
 
-AliScan is an INDEPENDENT analysis application.
-AliScan is NOT affiliated with Alibaba.
+AliScan est une application d’analyse INDÉPENDANTE.
+AliScan n’est PAS affiliée à Alibaba.
 
-Hard rules:
-- Never claim AliScan is owned by, built by, or affiliated with Alibaba.
-- Never invent capabilities (live web browsing, access to Alibaba systems, real-time verification, notifications, internal databases).
-- Use ONLY the user-provided data: text message, OCR text, cost/margin JSON, and user memory.
+Règles obligatoires :
+- Alibaba = marketplace.
+- AliScan = outil indépendant qui analyse uniquement les données fournies par l’utilisateur (captures, texte OCR, infos produit, coûts, marge).
+- Ne dis JAMAIS qu’AliScan vient d’Alibaba.
+- N’invente JAMAIS d’accès à Alibaba (prix en temps réel, comptes, commandes, notifications, bases internes, etc.).
+- Si une info manque, pose 1 question courte ou propose une hypothèse clairement marquée.
 
-Conversation:
-- Do NOT greet again after the first assistant message.
-- Continue naturally from prior context.
+Conversation :
+- Ne répète pas “Bonjour” si la discussion a déjà commencé.
+- Continue naturellement avec le contexte.
 
-Language (strict):
-- If the user writes in French -> respond ONLY in French.
-- Never switch language unless explicitly asked.
+Langue (strict) :
+- Si l’utilisateur écrit en français -> réponds uniquement en français.
+- Ne change pas de langue sauf demande explicite.
 """.strip()
 
 FORBIDDEN_PHRASES = [
@@ -65,6 +67,7 @@ def sanitize_answer(answer: str) -> str:
 
     return ans
 
+
 def _normalize_language(lang: Optional[str]) -> str:
     if not lang:
         return "auto"
@@ -75,6 +78,7 @@ def _normalize_language(lang: Optional[str]) -> str:
         lang = lang.split("-")[0]
     return lang if lang in {"auto", "fr", "en", "ar", "es", "pt"} else "auto"
 
+
 def _sanitize_history_messages(
     messages: Optional[List[Dict[str, Any]]],
     max_items: int = 12,
@@ -82,21 +86,26 @@ def _sanitize_history_messages(
 ) -> List[Dict[str, str]]:
     if not messages:
         return []
+
     cleaned: List[Dict[str, str]] = []
     for m in messages[-max_items:]:
         if not isinstance(m, dict):
             continue
         role = (m.get("role") or "").strip().lower()
         content = m.get("content")
+
         if role not in ("user", "assistant"):
             continue
         if not isinstance(content, str):
             continue
+
         content = content.strip()
         if not content:
             continue
+
         cleaned.append({"role": role, "content": content[:max_chars_each]})
     return cleaned
+
 
 def _build_user_payload(
     message: str,
@@ -122,46 +131,55 @@ def _build_user_payload(
     parts.append("[USER_MESSAGE]\n" + (message or "").strip())
     return "\n\n".join(parts)
 
+
 def _strip_repeated_greeting(answer: str, has_history: bool) -> str:
     if not has_history:
         return answer
+
     a = answer.lstrip()
     a = re.sub(r"^(bonjour|bonsoir|salut)\s*[!.,:–-]*\s*", "", a, flags=re.I)
     return a.strip()
 
-def _mistral_chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str:
+
+def _call_mistral_chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str:
     if not MISTRAL_API_KEY:
-        raise RuntimeError("Missing MISTRAL_API_KEY")
+        raise RuntimeError("MISTRAL_API_KEY manquant (Render env var).")
 
-    r = requests.post(
-        MISTRAL_URL,
-        headers={
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": MISTRAL_MODEL,
-            "messages": messages,
-            "temperature": float(temperature),
-            "max_tokens": int(max_tokens),
-        },
-        timeout=60
-    )
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
 
-    if not r.ok:
-        raise RuntimeError(f"Mistral HTTP {r.status_code}: {r.text[:500]}")
+    payload = {
+        "model": MODEL_ID,
+        "messages": messages,
+        "temperature": float(temperature),
+        "max_tokens": int(max_tokens),
+    }
+
+    r = requests.post(MISTRAL_URL, headers=headers, json=payload, timeout=60)
+
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = {"raw": r.text}
+        raise RuntimeError(f"Mistral HTTP {r.status_code}: {detail}")
 
     data = r.json()
-    return (data["choices"][0]["message"]["content"] or "").strip()
+    # format attendu: choices[0].message.content
+    return (data.get("choices", [{}])[0].get("message", {}) or {}).get("content", "") or ""
+
 
 # -----------------------------
-# Public function (on garde le nom pour éviter de modifier app.py)
+# Public function (GARDER LE NOM)
 # -----------------------------
 def ask_qwen(
     message: str,
     language: str = "auto",
-    messages: Optional[List[Dict[str, Any]]] = None,        # mémoire courte
-    user_memory: Optional[Dict[str, Any]] = None,           # mémoire long terme
+    messages: Optional[List[Dict[str, Any]]] = None,
+    user_memory: Optional[Dict[str, Any]] = None,
     ocr_text: Optional[str] = None,
     cost_json: Optional[Dict[str, Any]] = None,
     margin_json: Optional[Dict[str, Any]] = None,
@@ -182,15 +200,15 @@ def ask_qwen(
     chat_messages.append({"role": "user", "content": user_payload})
 
     try:
-        answer = _mistral_chat(chat_messages, temperature=temperature, max_tokens=max_tokens)
+        answer = _call_mistral_chat(chat_messages, temperature=temperature, max_tokens=max_tokens)
         answer = sanitize_answer(answer)
         answer = _strip_repeated_greeting(answer, has_history)
-        return {"answer": answer, "model": MISTRAL_MODEL}
+        return {"answer": answer, "model": MODEL_ID}
 
     except Exception as e:
         return {
-            "error": "⏳ Optimisation en cours pour un meilleur résultat… Merci de réessayer dans quelques instants.",
+            "error": "⏳ Impossible de contacter l'IA pour le moment. Réessaie dans quelques instants.",
             "detail": str(e),
-            "model": MISTRAL_MODEL,
+            "model": MODEL_ID,
             "has_key": bool(MISTRAL_API_KEY),
         }
