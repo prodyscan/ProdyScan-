@@ -5835,3 +5835,101 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+
+
+// ===========================
+// 🎓 FORMATION (YouTube modules)
+// ===========================
+(function initTrainingScreen() {
+  const listEl = document.getElementById("training-list");
+  const lockedEl = document.getElementById("training-locked");
+  const playerEl = document.getElementById("training-player");
+
+  if (!listEl || !lockedEl || !playerEl) return;
+
+  const MODULES = [
+    { title: "Module 1 : Création du compte Alibaba", url: "https://youtu.be/Gx0c_lfH8L0?si=Si9cucwtnch5Uhpn" },
+    { title: "Module 2A : Trouver un bon produit (Méthode 1)", url: "https://youtu.be/jnrTRxrdHoE?si=RlZOxyplv5uy73Er" },
+    { title: "Module 2B : Trouver un bon produit (Méthode 2)", url: "https://youtu.be/HO69rrkH2k4?si=KRDal2GX0OT8FjyI" },
+    { title: "Module 3 : Trouver un meilleur fournisseur", url: "https://youtu.be/ycozKvER2YM?si=IhlXOCa76Lv-iQBR" },
+    { title: "Module 4 : Effectuer un paiement sur Alibaba", url: "https://youtu.be/lLVx033Gado?si=kHDCyHPpaiQsrK4S" },
+    { title: "Bonus : Explication cartes Visa", url: "https://youtu.be/hyb0itA-3Gc?si=V1Lybcf7zITnN5dW" },
+  ];
+
+  function youtubeId(url) {
+    const s = String(url || "");
+    let m = s.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+    if (m) return m[1];
+    m = s.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+    if (m) return m[1];
+    return "";
+  }
+
+  // ✅ Accès = abonnement actif (subUntil > now)
+  function hasTrainingAccess() {
+    try {
+      if (typeof window.getBilling === "function") {
+        const b = window.getBilling();
+        if ((b?.subUntil || 0) > Date.now()) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  function openVideo(url) {
+    const id = youtubeId(url);
+    if (!id) return;
+
+    const embed = `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1`;
+
+    playerEl.innerHTML = `
+      <iframe
+        src="${embed}"
+        style="width:100%; height:100%; border:0;"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    `;
+    playerEl.style.display = "block";
+    playerEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function renderTraining() {
+    const ok = hasTrainingAccess();
+
+    lockedEl.style.display = ok ? "none" : "block";
+    playerEl.style.display = "none";
+    playerEl.innerHTML = "";
+
+    listEl.innerHTML = "";
+    MODULES.forEach((m) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.marginTop = "10px";
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+          <div style="flex:1;">
+            <div style="font-weight:800;">${m.title}</div>
+          </div>
+          <button class="btn-primary" style="white-space:nowrap; ${ok ? "" : "opacity:.55; cursor:not-allowed;"}" ${ok ? "" : "disabled"}>
+            ${ok ? "▶ Regarder" : "🔒 Pro"}
+          </button>
+        </div>
+      `;
+
+      const btn = card.querySelector("button");
+      if (ok) btn.addEventListener("click", () => openVideo(m.url));
+
+      listEl.appendChild(card);
+    });
+  }
+
+  // 🟢 Re-render à chaque fois qu’on clique dans le menu
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".menu-btn[data-screen='screen-training']");
+    if (btn) setTimeout(renderTraining, 50);
+  });
+})();
