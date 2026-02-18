@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formation AliScan</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body class="formation-page">
+
+  <header class="formation-header">
+    <button class="formation-back" onclick="window.history.back()">←</button>
+    <div class="formation-title">
+      <div class="formation-h1">📚 Formation gratuite</div>
+      <div class="formation-sub">Choisis un module ci-dessous</div>
+    </div>
+  </header>
+
+  <!-- Lecteur -->
+  <section class="formation-player-wrap">
+    <div class="video-container">
+      <iframe
+        id="yt-player"
+        src="https://www.youtube.com/embed/VIDEO_ID_1"
+        title="Formation AliScan"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <div id="module-title" class="module-title">Module 1 — Introduction</div>
+  </section>
+
+  <!-- Liste modules -->
+  <section class="formation-modules">
+    <button class="module-item active" data-title="Module 1 — Introduction" data-id="VIDEO_ID_1">
+      <span class="module-num">1</span>
+      <span class="module-text">Introduction</span>
+    </button>
+
+    <button class="module-item" data-title="Module 2 — Lire un profil fournisseur" data-id="VIDEO_ID_2">
+      <span class="module-num">2</span>
+      <span class="module-text">Lire un profil fournisseur</span>
+    </button>
+
+    <button class="module-item" data-title="Module 3 — Vérifier certifications" data-id="VIDEO_ID_3">
+      <span class="module-num">3</span>
+      <span class="module-text">Vérifier les certifications</span>
+    </button>
+
+    <button class="module-item" data-title="Module 4 — Éviter les arnaques" data-id="VIDEO_ID_4">
+      <span class="module-num">4</span>
+      <span class="module-text">Éviter les arnaques</span>
+    </button>
+  </section>
+
+  <script>
+    (function() {
+      const player = document.getElementById("yt-player");
+      const titleEl = document.getElementById("module-title");
+      const items = Array.from(document.querySelectorAll(".module-item"));
+
+      function setActive(btn) {
+        items.forEach(x => x.classList.remove("active"));
+        btn.classList.add("active");
+      }
+
+      items.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const vid = btn.getAttribute("data-id");
+          const ttl = btn.getAttribute("data-title") || "";
+          // autoplay=1 pour lancer direct (tu peux enlever si tu veux)
+          player.src = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`;
+          titleEl.textContent = ttl;
+          setActive(btn);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
