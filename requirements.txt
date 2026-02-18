@@ -6,4 +6,4 @@ pillow
 pytesseract
 urllib3
 flask
-huggingface_hub>=0.23.0
+mistralai>=0.1.0
