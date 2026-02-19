@@ -1095,71 +1095,192 @@ if (amount === 300) b.aiPack = (b.aiPack || 0) + 120;
   refreshPricingUI();
 }
 
+// ==============================
+// PRICING + BILLING (VERSION UNIQUE)
+// ==============================
+const BILLING_KEY = "aliscan_billing_v2";
 
-function getBillingV2() {
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+function monthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getBilling() {
   try {
-    return JSON.parse(localStorage.getItem("aliscan_billing_v2")) || {};
+    const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
+    const t = todayKey();
+    const ym = monthKey();
+
+    // normalize
+    if (!b.freeDay || b.freeDay.date !== t) b.freeDay = { date: t, used: 0 };
+    if (!b.aiFreeDay || b.aiFreeDay.date !== t) b.aiFreeDay = { date: t, used: 0 };
+    if (!b.aiMonth || b.aiMonth.ym !== ym) b.aiMonth = { ym, used: 0 };
+
+    return {
+      trialLeft: Number(b.trialLeft ?? 25),      // ESSAI OCR (25 actions)
+      packCredits: Number(b.packCredits ?? 0),
+      packSaves: Number(b.packSaves ?? 0),
+
+      // IA
+      aiPack: Number(b.aiPack ?? 0),
+      aiMonthLimit: Number(b.aiMonthLimit ?? 300),
+      aiMonth: b.aiMonth,
+      aiFreeDay: b.aiFreeDay,
+
+      // Free OCR
+      freeDay: b.freeDay, // {date, used}
+
+      // Sub
+      subUntil: Number(b.subUntil ?? 0),
+      subPlan: String(b.subPlan ?? ""),
+
+      ...b,
+    };
   } catch {
-    return {};
+    const t = todayKey();
+    const ym = monthKey();
+    return {
+      trialLeft: 25,
+      packCredits: 0,
+      packSaves: 0,
+      aiPack: 0,
+      aiMonthLimit: 300,
+      aiMonth: { ym, used: 0 },
+      aiFreeDay: { date: t, used: 0 },
+      freeDay: { date: t, used: 0 },
+      subUntil: 0,
+      subPlan: "",
+    };
   }
 }
-function saveBillingV2(b) {
-  localStorage.setItem("aliscan_billing_v2", JSON.stringify(b || {}));
+
+function setBilling(b) {
+  localStorage.setItem(BILLING_KEY, JSON.stringify(b || {}));
 }
 
-// 💼 Pack Basique 2000 FCFA → 30 analyses, 100 IA
+function isSubActive(b) {
+  return (b.subUntil || 0) > Date.now();
+}
+
+// ===== FREE OCR : 3 / jour =====
+function getFreeRemaining(b) {
+  const t = todayKey();
+  if (!b.freeDay || b.freeDay.date !== t) b.freeDay = { date: t, used: 0 };
+  return Math.max(0, 3 - Number(b.freeDay.used || 0));
+}
+
+// ===== IA : (sub => quota mensuel) / (pack) / (daily 5/j) =====
+function canUseAI() {
+  const b = getBilling();
+
+  if (isSubActive(b)) {
+    const ym = monthKey();
+    if (!b.aiMonth || b.aiMonth.ym !== ym) b.aiMonth = { ym, used: 0 };
+
+    const limit = Number(b.aiMonthLimit ?? 300);
+    const left = Math.max(0, limit - Number(b.aiMonth.used || 0));
+    return left > 0 ? { ok: true, mode: "sub", left } : { ok: false };
+  }
+
+  if ((b.aiPack || 0) > 0) return { ok: true, mode: "pack", left: b.aiPack };
+
+  // daily 5
+  const t = todayKey();
+  if (!b.aiFreeDay || b.aiFreeDay.date !== t) b.aiFreeDay = { date: t, used: 0 };
+  const daily = Math.max(0, 5 - Number(b.aiFreeDay.used || 0));
+  return daily > 0 ? { ok: true, mode: "daily", left: daily } : { ok: false };
+}
+
+function consumeAI() {
+  const b = getBilling();
+
+  if (isSubActive(b)) {
+    const ym = monthKey();
+    if (!b.aiMonth || b.aiMonth.ym !== ym) b.aiMonth = { ym, used: 0 };
+    const limit = Number(b.aiMonthLimit ?? 300);
+    if (Number(b.aiMonth.used || 0) >= limit) return { ok: false, reason: "sub_limit" };
+    b.aiMonth.used = Number(b.aiMonth.used || 0) + 1;
+    setBilling(b);
+    return { ok: true, mode: "sub" };
+  }
+
+  if ((b.aiPack || 0) > 0) {
+    b.aiPack -= 1;
+    setBilling(b);
+    return { ok: true, mode: "pack" };
+  }
+
+  const t = todayKey();
+  if (!b.aiFreeDay || b.aiFreeDay.date !== t) b.aiFreeDay = { date: t, used: 0 };
+  const daily = Math.max(0, 5 - Number(b.aiFreeDay.used || 0));
+  if (daily > 0) {
+    b.aiFreeDay.used = Number(b.aiFreeDay.used || 0) + 1;
+    setBilling(b);
+    return { ok: true, mode: "daily" };
+  }
+
+  return { ok: false, reason: "limit" };
+}
+
+window.getBilling = getBilling;
+window.setBilling = setBilling;
+window.canUseAI = canUseAI;
+window.consumeAI = consumeAI;
+
+// ==============================
+// OFFRES (TES NOUVEAUX CHIFFRES)
+// Basique 2000 => +30 analyses +30 saves +100 IA
+// Pro 4500 => +100 analyses +100 saves +250 IA
+// Business mensuel 5000 => illimité + 5000 IA/mois
+// Business annuel 50000 => illimité + 5000 IA/mois (simple)
+// ==============================
 function buyPack100() {
-  const b = getBillingV2();
-  b.packCredits = (b.packCredits || 0) + 30;
-  b.packSaves   = (b.packSaves || 0) + 30;
-  b.aiLeft      = (b.aiLeft || 0) + 100;
-
-  saveBillingV2(b);
+  const b = getBilling();
+  b.packCredits += 30;
+  b.packSaves += 30;
+  b.aiPack += 100;
+  setBilling(b);
 }
 
-// 🚀 Pack Pro 4500 FCFA → 100 analyses, 250 IA
 function buyPack300() {
-  const b = getBillingV2();
-  b.packCredits = (b.packCredits || 0) + 100;
-  b.packSaves   = (b.packSaves || 0) + 100;
-  b.aiLeft      = (b.aiLeft || 0) + 250;
-
-  saveBillingV2(b);
+  const b = getBilling();
+  b.packCredits += 100;
+  b.packSaves += 100;
+  b.aiPack += 250;
+  setBilling(b);
 }
 
-// 👑 Business 5000 FCFA/mois → 5000 IA + analyses illimitées
 function activatePro(mode) {
-  const b = getBillingV2();
+  const b = getBilling();
   const now = Date.now();
-  const oneMonth = 30 * 24 * 60 * 60 * 1000;
 
-  // business mensuel
   if (mode === "month") {
-    b.subUntil = now + oneMonth;
-    b.aiLeft   = 5000;
-    b.packCredits = 999999;
-    b.packSaves   = 999999;
+    b.subUntil = now + 30 * 24 * 60 * 60 * 1000;
+    b.subPlan = "month";
+    b.aiMonthLimit = 5000;
+    b.aiMonth = { ym: monthKey(), used: 0 };
   }
 
-  // si tu gardes un annuel, tu peux décider quoi mettre :
   if (mode === "year") {
-    const oneYear = 365 * 24 * 60 * 60 * 1000;
-    b.subUntil = now + oneYear;
-    b.aiLeft   = 5000 * 12;     // ex: 60 000 IA/an (modifiable)
-    b.packCredits = 999999;
-    b.packSaves   = 999999;
+    b.subUntil = now + 365 * 24 * 60 * 60 * 1000;
+    b.subPlan = "year";
+    b.aiMonthLimit = 5000;
+    b.aiMonth = { ym: monthKey(), used: 0 };
   }
 
-  saveBillingV2(b);
+  setBilling(b);
 }
 
 function cancelPro() {
-  const b = getBillingV2();
+  const b = getBilling();
   b.subUntil = 0;
-  saveBillingV2(b);
+  b.subPlan = "";
+  b.aiMonthLimit = 300;
+  setBilling(b);
 }
-
-// --- Bind des clics (UNE SEULE FOIS) ---
 
 
 
