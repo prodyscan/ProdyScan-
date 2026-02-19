@@ -366,7 +366,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // - Abonnements : 2000/mois illimité, 20000/an illimité+IA: 600/ans
 // ==============================
 
-const BILLING_KEY = "aliscan_billing_v2";
 const PLAN_KEY = "aliscan_plan";
 const OCR_USED_KEY = "aliscan_ocr_used";
 const CREDITS_KEY = "aliscan_credits";
@@ -426,121 +425,6 @@ function todayKey() {
 
 
 
-
-function getBilling() {
-  try {
-    const b = JSON.parse(localStorage.getItem("aliscan_billing_v2") || "{}");
-    return {
-      aiPack: Number(b.aiPack ?? 0),
-      aiTrialOnce: Number(b.aiTrialOnce ?? 20),
-      aiFreeDay: b.aiFreeDay?.date ? b.aiFreeDay : { date: todayKey(), used: 0 },
-      aiMonth: b.aiMonth?.ym ? b.aiMonth : { ym: monthKey(), used: 0 },
-
-      // ✅ NOUVEAU : limite IA mensuelle pour abonnement
-      aiMonthLimit: Number(b.aiMonthLimit ?? 300),
-
-      subUntil: Number(b.subUntil ?? 0),
-      subPlan: String(b.subPlan ?? ""),
-      packCredits: Number(b.packCredits ?? 0),
-      packSaves: Number(b.packSaves ?? 0),
-      trialLeft: Number(b.trialLeft ?? 0),
-      ...b
-    };
-  } catch {
-    return {
-      aiPack: 0,
-      aiTrialOnce: 20,
-      aiFreeDay: { date: todayKey(), used: 0 },
-      aiMonth: { ym: monthKey(), used: 0 },
-      aiMonthLimit: 300,
-      subUntil: 0,
-      subPlan: "",
-      packCredits: 0,
-      packSaves: 0,
-      trialLeft: 0
-    };
-  }
-}
-
-function setBilling(b) {
-  localStorage.setItem("aliscan_billing_v2", JSON.stringify(b));
-}
-
-function isSubActive(b) {
-  return (b.subUntil || 0) > Date.now();
-}
-
-// ✅ Mets à jour canUseAI pour utiliser aiMonthLimit au lieu de 300
-function canUseAI() {
-  const b = getBilling();
-
-  if (isSubActive(b)) {
-    const limit = Number(b.aiMonthLimit ?? 300);
-    const left = Math.max(0, limit - (b.aiMonth.used || 0));
-    return left > 0 ? { ok: true, mode: "sub", left } : { ok: false };
-  }
-
-  if (b.aiPack > 0) return { ok: true, mode: "pack", left: b.aiPack };
-  if (b.aiTrialOnce > 0) return { ok: true, mode: "trial", left: b.aiTrialOnce };
-
-  const daily = Math.max(0, 5 - (b.aiFreeDay.used || 0));
-  return daily > 0 ? { ok: true, mode: "daily", left: daily } : { ok: false };
-}
-
-// ✅ BASIQUE 2000 FCFA
-function buyPack100() {
-  const b = getBilling();
-  b.packCredits = (b.packCredits || 0) + 30;   // 30 analyses fournisseur
-  b.packSaves   = (b.packSaves || 0) + 30;
-  b.aiPack      = (b.aiPack || 0) + 100;      // 100 réponses IA (pack)
-  setBilling(b);
-}
-
-// ✅ PRO 4500 FCFA
-function buyPack300() {
-  const b = getBilling();
-  b.packCredits = (b.packCredits || 0) + 100;  // 100 analyses fournisseur
-  b.packSaves   = (b.packSaves || 0) + 100;
-  b.aiPack      = (b.aiPack || 0) + 250;      // 250 réponses IA (pack)
-  setBilling(b);
-}
-
-// ✅ BUSINESS 5000 FCFA / mois (5000 IA/mois)
-function activatePro(mode) {
-  const b = getBilling();
-  const now = Date.now();
-
-  if (mode === "month") {
-    const oneMonth = 30 * 24 * 60 * 60 * 1000;
-    b.subUntil = now + oneMonth;
-    b.subPlan = "month";
-
-    // ✅ limite mensuelle IA au lieu de 300
-    b.aiMonthLimit = 5000;
-
-    // reset compteur du mois (propre)
-    b.aiMonth = { ym: monthKey(), used: 0 };
-  }
-
-  if (mode === "year") {
-    // optionnel : annuel = 12 mois
-    const oneYear = 365 * 24 * 60 * 60 * 1000;
-    b.subUntil = now + oneYear;
-    b.subPlan = "year";
-    b.aiMonthLimit = 5000; // 5000/mois même en annuel
-    b.aiMonth = { ym: monthKey(), used: 0 };
-  }
-
-  setBilling(b);
-}
-
-function cancelPro() {
-  const b = getBilling();
-  b.subUntil = 0;
-  b.subPlan = "";
-  b.aiMonthLimit = 300; // retour limite normale
-  setBilling(b);
-}
 // ==============================
 // SAVE / EXPORT (Billing V2 propre)
 // ==============================
@@ -1098,6 +982,8 @@ if (amount === 300) b.aiPack = (b.aiPack || 0) + 120;
 // ==============================
 // PRICING + BILLING (VERSION UNIQUE)
 // ==============================
+
+
 const BILLING_KEY = "aliscan_billing_v2";
 
 function todayKey() {
@@ -1237,126 +1123,9 @@ window.consumeAI = consumeAI;
 // Business mensuel 5000 => illimité + 5000 IA/mois
 // Business annuel 50000 => illimité + 5000 IA/mois (simple)
 // ==============================
-function buyPack100() {
-  const b = getBilling();
-  b.packCredits += 30;
-  b.packSaves += 30;
-  b.aiPack += 100;
-  setBilling(b);
-}
-
-function buyPack300() {
-  const b = getBilling();
-  b.packCredits += 100;
-  b.packSaves += 100;
-  b.aiPack += 250;
-  setBilling(b);
-}
-
-function activatePro(mode) {
-  const b = getBilling();
-  const now = Date.now();
-
-  if (mode === "month") {
-    b.subUntil = now + 30 * 24 * 60 * 60 * 1000;
-    b.subPlan = "month";
-    b.aiMonthLimit = 5000;
-    b.aiMonth = { ym: monthKey(), used: 0 };
-  }
-
-  if (mode === "year") {
-    b.subUntil = now + 365 * 24 * 60 * 60 * 1000;
-    b.subPlan = "year";
-    b.aiMonthLimit = 5000;
-    b.aiMonth = { ym: monthKey(), used: 0 };
-  }
-
-  setBilling(b);
-}
-
-function cancelPro() {
-  const b = getBilling();
-  b.subUntil = 0;
-  b.subPlan = "";
-  b.aiMonthLimit = 300;
-  setBilling(b);
-}
 
 
 
-// --- Bind des clics (UNE SEULE FOIS) ---
-function bindPricingButtons() {
-  const btnPack100  = document.getElementById("buy-pack-10");     // Pack 100
-  const btnPack300  = document.getElementById("buy-pack-100");    // Pack 300
-  const btnProM     = document.getElementById("buy-pro-month");   // Pro mensuel
-  const btnProY     = document.getElementById("buy-pro-year");    // Pro annuel
-  const btnCancel   = document.getElementById("cancel-pro");
-  const btnRefresh  = document.getElementById("pricing-refresh");
-  const btnReset    = document.getElementById("pricing-reset");
-
-  // Packs
-  if (btnPack100) {
-    btnPack100.onclick = () => {
-      buyPack100();
-      if (typeof toast === "function") toast("✅ Pack Basique activé");
-      else alert("✅ Pack Basique activé");
-      refreshPricingUI();
-    };
-  }
-
-  if (btnPack300) {
-    btnPack300.onclick = () => {
-      buyPack300();
-      if (typeof toast === "function") toast("✅ Pack Pro activé");
-      else alert("✅ Pack Pro activé");
-      refreshPricingUI();
-    };
-  }
-
-  // Abonnement
-  if (btnProM) {
-    btnProM.onclick = () => {
-      activatePro("month");
-      if (typeof toast === "function") toast("✅ Business mensuel activé");
-      else alert("✅ Business mensuel activé");
-      refreshPricingUI();
-    };
-  }
-
-  if (btnProY) {
-    btnProY.onclick = () => {
-      activatePro("year");
-      if (typeof toast === "function") toast("✅ Business annuel activé");
-      else alert("✅ Business annuel activé");
-      refreshPricingUI();
-    };
-  }
-
-  // Annuler
-  if (btnCancel) {
-    btnCancel.onclick = () => {
-      cancelPro();
-      if (typeof toast === "function") toast("✅ Abonnement annulé");
-      else alert("✅ Abonnement annulé");
-      refreshPricingUI();
-    };
-  }
-
-  // Rafraîchir UI
-  if (btnRefresh) {
-    btnRefresh.onclick = () => refreshPricingUI();
-  }
-
-  // Reset test
-  if (btnReset) {
-    btnReset.onclick = () => {
-      localStorage.removeItem("aliscan_billing_v2");
-      if (typeof toast === "function") toast("♻️ Reset terminé");
-      else alert("♻️ Reset terminé");
-      refreshPricingUI();
-    };
-  }
-}
 
 
 document.addEventListener("DOMContentLoaded", () => {
