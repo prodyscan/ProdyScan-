@@ -2473,3 +2473,38 @@ button.btn-primary:disabled {
   color:#111827;
   font-size:14px;
 }
+
+
+
+/* =========================
+   MENU BOUTONS ALIGNÉS
+========================= */
+
+#main-menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 colonnes */
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.menu-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: none;
+  background: #f2f2f2;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.menu-btn-active {
+  background: linear-gradient(135deg, #2f6bff, #0040ff);
+  color: white;
+}
+
+
+
+.menu-btn[data-screen="screen-training"] {
+  grid-column: span 2; /* prend les 2 colonnes */
+}
