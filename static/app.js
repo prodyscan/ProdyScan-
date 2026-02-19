@@ -12,7 +12,6 @@ window.addEventListener("error", (e) => {
 });
 
 
-
 // --------------------------------------------------
 // 1) OUTILS GÉNÉRAUX
 // --------------------------------------------------
@@ -1238,10 +1237,12 @@ function bindPricingButtons() {
   }
 }
 
+
 document.addEventListener("DOMContentLoaded", () => {
   bindPricingButtons();
   refreshPricingUI();
 });
+
 function getFreeUsed() {
   return parseInt(localStorage.getItem(OCR_USED_KEY) || "0", 10) || 0;
 }

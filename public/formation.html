@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Formation Alibaba</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#101a2f;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --blue:#2563eb;
+      --border:#1f2a44;
+    }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
+    .topbar{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 14px; background:rgba(11,18,32,.85); backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--border);
+    }
+    .title{ font-weight:700; font-size:16px; }
+    .pill{ font-size:12px; color:var(--muted); border:1px solid var(--border); padding:6px 10px; border-radius:999px; }
+    .wrap{ padding:14px; max-width:900px; margin:0 auto; }
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:16px;
+      padding:14px; margin-bottom:12px;
+    }
+    .row{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
+    .mod-title{ font-weight:700; margin:0 0 4px 0; }
+    .mod-desc{ margin:0; color:var(--muted); font-size:13px; line-height:1.35; }
+    .btn{
+      background:transparent; color:var(--blue);
+      border:2px solid var(--blue);
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .btn:hover{ background:rgba(37,99,235,.10); }
+    .lock{ color:#fbbf24; font-weight:700; }
+    .player{
+      margin-top:14px;
+      background:#000; border-radius:16px; overflow:hidden;
+      border:1px solid var(--border);
+      aspect-ratio:16/9;
+      display:none;
+    }
+    .player iframe{ width:100%; height:100%; border:0; }
+    .hint{ color:var(--muted); font-size:12px; margin-top:10px; }
+    .err{ color:#fca5a5; font-size:13px; margin-top:10px; display:none; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="title">🎓 Formation Alibaba</div>
+    <div id="access-pill" class="pill">Vérification accès…</div>
+  </div>
+
+  <div class="wrap">
+
+    <div id="locked-box" class="card" style="display:none;">
+      <div class="row">
+        <div>
+          <p class="mod-title">🔒 Accès réservé</p>
+          <p class="mod-desc">Cette formation est disponible pour les abonnés <b>Pro / Business</b>.</p>
+          <p class="mod-desc">Active un abonnement, puis reviens ici.</p>
+        </div>
+        <div class="lock">PRO</div>
+      </div>
+    </div>
+
+    <div id="list"></div>
+
+    <div id="player" class="player"></div>
+
+    <div id="err" class="err"></div>
+    <div class="hint">Astuce : si tu veux éviter le partage, mets les vidéos YouTube en “Non répertoriée”.</div>
+  </div>
+
+  <script>
+    // ====== Tes modules (liens fournis) ======
+    const MODULES = [
+      {
+        title: "Module 1 : Création du compte Alibaba",
+        desc: "Créer un compte propre et éviter les erreurs.",
+        url: "https://youtu.be/Gx0c_lfH8L0?si=Si9cucwtnch5Uhpn"
+      },
+      {
+        title: "Module 2A : Trouver un bon produit (Méthode 1)",
+        desc: "Choisir un produit rentable et facile à vendre.",
+        url: "https://youtu.be/jnrTRxrdHoE?si=RlZOxyplv5uy73Er"
+      },
+      {
+        title: "Module 2B : Trouver un bon produit (Méthode 2)",
+        desc: "Méthode avancée pour améliorer la sélection.",
+        url: "https://youtu.be/HO69rrkH2k4?si=KRDal2GX0OT8FjyI"
+      },
+      {
+        title: "Module 3 : Trouver un meilleur fournisseur",
+        desc: "Vérifier la fiabilité du vendeur et réduire les risques.",
+        url: "https://youtu.be/ycozKvER2YM?si=IhlXOCa76Lv-iQBR"
+      },
+      {
+        title: "Module 4 : Effectuer un paiement sur Alibaba",
+        desc: "Payer correctement et en sécurité.",
+        url: "https://youtu.be/lLVx033Gado?si=kHDCyHPpaiQsrK4S"
+      },
+      {
+        title: "Bonus : Explication cartes Visa",
+        desc: "Comprendre et utiliser une carte Visa pour payer.",
+        url: "https://youtu.be/hyb0itA-3Gc?si=V1Lybcf7zITnN5dW"
+      }
+    ];
+
+    // ====== Access control (simple, basé sur TON billing v2) ======
+    // On considère "Pro/Business" = abonnement actif (subUntil > now)
+    // Si tu veux aussi ouvrir pour certains packs, ajoute une condition ici.
+    function hasTrainingAccess(){
+      try{
+        // Ton app a déjà getBilling/isSubActive dans app.js (window.getBilling etc.)
+        if (typeof window.getBilling === "function") {
+          const b = window.getBilling();
+          if ((b?.subUntil || 0) > Date.now()) return true; // abonnement actif
+        }
+
+        // Fallback: si formation activée manuellement (optionnel)
+        // localStorage.setItem("aliscan_training_access", "1")
+        if (localStorage.getItem("aliscan_training_access") === "1") return true;
+
+        return false;
+      }catch(e){
+        return false;
+      }
+    }
+
+    function youtubeId(url){
+      const s = String(url || "");
+      // youtu.be/ID
+      let m = s.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+      if (m) return m[1];
+      // youtube.com/watch?v=ID
+      m = s.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+      if (m) return m[1];
+      return "";
+    }
+
+    function openVideo(url){
+      const id = youtubeId(url);
+      const player = document.getElementById("player");
+      const err = document.getElementById("err");
+      err.style.display = "none";
+
+      if (!id){
+        err.textContent = "❌ Lien YouTube invalide.";
+        err.style.display = "block";
+        return;
+      }
+
+      // youtube-nocookie (plus propre)
+      const embed = `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1`;
+
+      player.innerHTML = `<iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen src="${embed}"></iframe>`;
+      player.style.display = "block";
+      player.scrollIntoView({behavior:"smooth", block:"start"});
+    }
+
+    function render(){
+      const list = document.getElementById("list");
+      const lockedBox = document.getElementById("locked-box");
+      const pill = document.getElementById("access-pill");
+
+      const ok = hasTrainingAccess();
+
+      pill.textContent = ok ? "Accès : PRO ✅" : "Accès : verrouillé 🔒";
+      lockedBox.style.display = ok ? "none" : "block";
+
+      list.innerHTML = "";
+      MODULES.forEach((m, idx) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const btn = ok
+          ? `<button class="btn" data-url="${m.url}">▶ Regarder</button>`
+          : `<button class="btn" disabled style="opacity:.55; cursor:not-allowed;">🔒 Pro</button>`;
+
+        card.innerHTML = `
+          <div class="row">
+            <div style="flex:1;">
+              <p class="mod-title">${m.title}</p>
+              <p class="mod-desc">${m.desc}</p>
+            </div>
+            <div>${btn}</div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+
+      // bind
+      if (ok){
+        list.querySelectorAll("button[data-url]").forEach(btn=>{
+          btn.addEventListener("click", ()=> openVideo(btn.getAttribute("data-url")));
+        });
+      }
+    }
+
+    // On attend un peu au cas où app.js charge après (selon ta structure)
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(render, 100);
+    });
+  </script>
+
+  <!-- Optionnel: si ton app.js est global, tu peux le charger ici.
+       Sinon enlève ces lignes. -->
+  <script src="/app.js"></script>
+</body>
+</html>
