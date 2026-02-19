@@ -846,7 +846,8 @@ window.Paywall = {
 
 
 // Init paywall
-function initPlan() {
+function 
+initPlan() {
   if (!localStorage.getItem(PLAN_KEY))     localStorage.setItem(PLAN_KEY, "free");
   if (!localStorage.getItem(OCR_USED_KEY)) localStorage.setItem(OCR_USED_KEY, "0");
   if (!localStorage.getItem(CREDITS_KEY))  localStorage.setItem(CREDITS_KEY, "0");
@@ -5833,8 +5834,33 @@ document.addEventListener("DOMContentLoaded", () => {
       saveMargin();
     });
   }
-});
 
+  // ✅ Navigation des écrans via le menu
+  (function fixScreenNav() {
+    const menu = document.getElementById("main-menu");
+    if (!menu) return;
+
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach((s) => {
+        s.hidden = (s.id !== id);
+      });
+
+      document.querySelectorAll(".menu-btn").forEach((b) => {
+        b.classList.toggle("menu-btn-active", b.dataset.screen === id);
+      });
+    }
+
+    menu.addEventListener("click", (e) => {
+      const btn = e.target.closest(".menu-btn");
+      if (!btn) return;
+
+      const target = btn.dataset.screen;
+      if (!target) return;
+
+      showScreen(target);
+    });
+  })();
+});
 
 
 // ===========================
