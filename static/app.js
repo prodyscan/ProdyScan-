@@ -422,104 +422,115 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const TRIAL_MAX = 25;
+
+
+
+
+
+
 function getBilling() {
   try {
-    const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
-
+    const b = JSON.parse(localStorage.getItem("aliscan_billing_v2") || "{}");
     return {
-      // ===== CORE =====
-      trialLeft: Number(b.trialLeft ?? TRIAL_MAX),         // 5 essais (save + export)
-      packCredits: Number(b.packCredits ?? 0),      // crédits analyses (packs)
-      packSaves: Number(b.packSaves ?? 0),          // sauvegardes (packs)
+      aiPack: Number(b.aiPack ?? 0),
+      aiTrialOnce: Number(b.aiTrialOnce ?? 20),
+      aiFreeDay: b.aiFreeDay?.date ? b.aiFreeDay : { date: todayKey(), used: 0 },
+      aiMonth: b.aiMonth?.ym ? b.aiMonth : { ym: monthKey(), used: 0 },
 
-      // ===== IA =====
-      aiPack: Number(b.aiPack ?? 0),                // crédits IA achetés
-      aiTrialOnce: 0, // désactivé → essai commun via trialLeft
+      // ✅ NOUVEAU : limite IA mensuelle pour abonnement
+      aiMonthLimit: Number(b.aiMonthLimit ?? 300),
 
-      aiFreeDay: b.aiFreeDay && b.aiFreeDay.date
-        ? b.aiFreeDay
-        : { date: todayKey(), used: 0 },            // 5 IA / jour (gratuit)
-
-      aiMonth: b.aiMonth && b.aiMonth.ym
-        ? b.aiMonth
-        : { ym: monthKey(), used: 0 },              // quota IA mensuel PRO
-
-      aiYear: b.aiYear && b.aiYear.y
-        ? b.aiYear
-        : { y: new Date().getFullYear(), used: 0 }, // quota IA annuel (optionnel)
-
-      // ===== ABONNEMENT =====
-      subUntil: Number(b.subUntil ?? 0),            // timestamp fin abonnement
-      subPlan: String(b.subPlan ?? ""),             // "month" | "year" | ""
-
-      // ===== GRATUIT / JOUR =====
-      freeDay: b.freeDay && b.freeDay.date
-        ? b.freeDay
-        : { date: todayKey(), used: 0 },            // 3 analyses / jour
+      subUntil: Number(b.subUntil ?? 0),
+      subPlan: String(b.subPlan ?? ""),
+      packCredits: Number(b.packCredits ?? 0),
+      packSaves: Number(b.packSaves ?? 0),
+      trialLeft: Number(b.trialLeft ?? 0),
+      ...b
     };
-
   } catch {
-    // ===== FALLBACK SÉCURITÉ =====
     return {
-      trialLeft: TRIAL_MAX,
-      packCredits: 0,
-      packSaves: 0,
-
       aiPack: 0,
       aiTrialOnce: 20,
       aiFreeDay: { date: todayKey(), used: 0 },
       aiMonth: { ym: monthKey(), used: 0 },
-      aiYear: { y: new Date().getFullYear(), used: 0 },
-
+      aiMonthLimit: 300,
       subUntil: 0,
       subPlan: "",
-
-      freeDay: { date: todayKey(), used: 0 },
+      packCredits: 0,
+      packSaves: 0,
+      trialLeft: 0
     };
   }
 }
 
 function setBilling(b) {
-  localStorage.setItem(BILLING_KEY, JSON.stringify(b));
+  localStorage.setItem("aliscan_billing_v2", JSON.stringify(b));
 }
 
 function isSubActive(b) {
-  return (b?.subUntil || 0) > Date.now();
+  return (b.subUntil || 0) > Date.now();
 }
 
-// 3 analyses gratuites / jour (après essai)
-function getFreeRemaining(b) {
-  const t = todayKey();
-  if (!b.freeDay || b.freeDay.date !== t) {
-    b.freeDay = { date: t, used: 0 };
-  }
-  return Math.max(0, 3 - Number(b.freeDay.used || 0));
-}
-function consumeFree(b) {
-  const left = getFreeRemaining(b);
-  if (left <= 0) return false;
-  b.freeDay.used = Number(b.freeDay.used || 0) + 1;
-  return true;
-}
-
-
-function activatePack(n) {
+// ✅ Mets à jour canUseAI pour utiliser aiMonthLimit au lieu de 300
+function canUseAI() {
   const b = getBilling();
-  b.packCredits = (b.packCredits || 0) + n;
-  b.packSaves   = (b.packSaves   || 0) + n;
+
+  if (isSubActive(b)) {
+    const limit = Number(b.aiMonthLimit ?? 300);
+    const left = Math.max(0, limit - (b.aiMonth.used || 0));
+    return left > 0 ? { ok: true, mode: "sub", left } : { ok: false };
+  }
+
+  if (b.aiPack > 0) return { ok: true, mode: "pack", left: b.aiPack };
+  if (b.aiTrialOnce > 0) return { ok: true, mode: "trial", left: b.aiTrialOnce };
+
+  const daily = Math.max(0, 5 - (b.aiFreeDay.used || 0));
+  return daily > 0 ? { ok: true, mode: "daily", left: daily } : { ok: false };
+}
+
+// ✅ BASIQUE 2000 FCFA
+function buyPack100() {
+  const b = getBilling();
+  b.packCredits = (b.packCredits || 0) + 30;   // 30 analyses fournisseur
+  b.packSaves   = (b.packSaves || 0) + 30;
+  b.aiPack      = (b.aiPack || 0) + 100;      // 100 réponses IA (pack)
   setBilling(b);
 }
 
-function activatePro(plan) {
+// ✅ PRO 4500 FCFA
+function buyPack300() {
+  const b = getBilling();
+  b.packCredits = (b.packCredits || 0) + 100;  // 100 analyses fournisseur
+  b.packSaves   = (b.packSaves || 0) + 100;
+  b.aiPack      = (b.aiPack || 0) + 250;      // 250 réponses IA (pack)
+  setBilling(b);
+}
+
+// ✅ BUSINESS 5000 FCFA / mois (5000 IA/mois)
+function activatePro(mode) {
   const b = getBilling();
   const now = Date.now();
 
-  b.subPlan = plan; // "month" | "year"
-  const days = (plan === "year") ? 365 : 30;
+  if (mode === "month") {
+    const oneMonth = 30 * 24 * 60 * 60 * 1000;
+    b.subUntil = now + oneMonth;
+    b.subPlan = "month";
 
-  // IMPORTANT : on remplace, pas de cumul
-  b.subUntil = now + days * 24 * 60 * 60 * 1000;
+    // ✅ limite mensuelle IA au lieu de 300
+    b.aiMonthLimit = 5000;
+
+    // reset compteur du mois (propre)
+    b.aiMonth = { ym: monthKey(), used: 0 };
+  }
+
+  if (mode === "year") {
+    // optionnel : annuel = 12 mois
+    const oneYear = 365 * 24 * 60 * 60 * 1000;
+    b.subUntil = now + oneYear;
+    b.subPlan = "year";
+    b.aiMonthLimit = 5000; // 5000/mois même en annuel
+    b.aiMonth = { ym: monthKey(), used: 0 };
+  }
 
   setBilling(b);
 }
@@ -528,10 +539,9 @@ function cancelPro() {
   const b = getBilling();
   b.subUntil = 0;
   b.subPlan = "";
+  b.aiMonthLimit = 300; // retour limite normale
   setBilling(b);
-  if (typeof toast === "function") toast("✅ Abonnement Pro désactivé");
 }
-
 // ==============================
 // SAVE / EXPORT (Billing V2 propre)
 // ==============================
@@ -966,34 +976,46 @@ if (el("st-subUntil")) {
 }
 
   // BOUTONS (état/texte seulement)
-  const btnM = el("buy-pro-month");
-  const btnY = el("buy-pro-year");
-  const btnCancel = el("cancel-pro");
 
-  if (btnM) {
-    const active = sub && b.subPlan === "month";
-    btnM.textContent = active
-      ? "✅ Pro mensuel actif"
-      : (sub ? "Passer en Mensuel — 2000 FCFA/mois" : "Activer Mensuel — 2000 FCFA/mois");
-    btnM.disabled = false;
-    btnM.classList.toggle("btn-active", active);
-  }
+// BOUTONS (état/texte seulement)
+const btnM = el("buy-pro-month");
+const btnY = el("buy-pro-year");
+const btnCancel = el("cancel-pro");
 
-  if (btnY) {
-    const active = sub && b.subPlan === "year";
-    btnY.textContent = active
-      ? "✅ Pro annuel actif"
-      : (sub ? "Passer en Annuel — 20 000 FCFA/an" : "Activer Annuel — 20 000 FCFA/an");
-    btnY.disabled = false;
-    btnY.classList.toggle("btn-active", active);
-  }
+if (btnM) {
+  const active = sub && b.subPlan === "month";
 
-  if (btnCancel) {
-    btnCancel.hidden = !sub; // ✅ permet de revenir en gratuit
-  }
+  btnM.textContent = active
+    ? "✅ Business mensuel actif"
+    : (sub
+        ? "Passer en Mensuel — 5000 FCFA/mois"
+        : "Activer Mensuel — 5000 FCFA/mois");
 
-  setBilling(b); // persist reset freeDay si date a changé
+  btnM.disabled = false;
+  btnM.classList.toggle("btn-active", active);
 }
+
+if (btnY) {
+  const active = sub && b.subPlan === "year";
+
+  btnY.textContent = active
+    ? "✅ Business annuel actif"
+    : (sub
+        ? "Passer en Annuel — 50 000 FCFA/an"
+        : "Activer Annuel — 50 000 FCFA/an");
+
+  btnY.disabled = false;
+  btnY.classList.toggle("btn-active", active);
+}
+
+if (btnCancel) {
+  btnCancel.hidden = !sub; // visible uniquement si abonnement actif
+}
+
+// Sauvegarde état (utile si reset freeDay auto)
+setBilling(b);
+
+
 
 // --- Modal (Moi / Ami) ---
 // ⚠️ Il faut que le HTML existe (ton <div id="recipient-modal"> ...)
@@ -1074,54 +1096,152 @@ if (amount === 300) b.aiPack = (b.aiPack || 0) + 120;
   refreshPricingUI();
 }
 
+
+function getBillingV2() {
+  try {
+    return JSON.parse(localStorage.getItem("aliscan_billing_v2")) || {};
+  } catch {
+    return {};
+  }
+}
+function saveBillingV2(b) {
+  localStorage.setItem("aliscan_billing_v2", JSON.stringify(b || {}));
+}
+
+// 💼 Pack Basique 2000 FCFA → 30 analyses, 100 IA
+function buyPack100() {
+  const b = getBillingV2();
+  b.packCredits = (b.packCredits || 0) + 30;
+  b.packSaves   = (b.packSaves || 0) + 30;
+  b.aiLeft      = (b.aiLeft || 0) + 100;
+
+  saveBillingV2(b);
+}
+
+// 🚀 Pack Pro 4500 FCFA → 100 analyses, 250 IA
+function buyPack300() {
+  const b = getBillingV2();
+  b.packCredits = (b.packCredits || 0) + 100;
+  b.packSaves   = (b.packSaves || 0) + 100;
+  b.aiLeft      = (b.aiLeft || 0) + 250;
+
+  saveBillingV2(b);
+}
+
+// 👑 Business 5000 FCFA/mois → 5000 IA + analyses illimitées
+function activatePro(mode) {
+  const b = getBillingV2();
+  const now = Date.now();
+  const oneMonth = 30 * 24 * 60 * 60 * 1000;
+
+  // business mensuel
+  if (mode === "month") {
+    b.subUntil = now + oneMonth;
+    b.aiLeft   = 5000;
+    b.packCredits = 999999;
+    b.packSaves   = 999999;
+  }
+
+  // si tu gardes un annuel, tu peux décider quoi mettre :
+  if (mode === "year") {
+    const oneYear = 365 * 24 * 60 * 60 * 1000;
+    b.subUntil = now + oneYear;
+    b.aiLeft   = 5000 * 12;     // ex: 60 000 IA/an (modifiable)
+    b.packCredits = 999999;
+    b.packSaves   = 999999;
+  }
+
+  saveBillingV2(b);
+}
+
+function cancelPro() {
+  const b = getBillingV2();
+  b.subUntil = 0;
+  saveBillingV2(b);
+}
+
+// --- Bind des clics (UNE SEULE FOIS) ---
+
+
+
 // --- Bind des clics (UNE SEULE FOIS) ---
 function bindPricingButtons() {
-  const btnPack100  = document.getElementById("buy-pack-10");
-  const btnPack300 = document.getElementById("buy-pack-100");
-  const btnProM    = document.getElementById("buy-pro-month");
-  const btnProY    = document.getElementById("buy-pro-year");
-  const btnCancel  = document.getElementById("cancel-pro");
-  const btnRefresh = document.getElementById("pricing-refresh");
-  const btnReset   = document.getElementById("pricing-reset");
+  const btnPack100  = document.getElementById("buy-pack-10");     // Pack 100
+  const btnPack300  = document.getElementById("buy-pack-100");    // Pack 300
+  const btnProM     = document.getElementById("buy-pro-month");   // Pro mensuel
+  const btnProY     = document.getElementById("buy-pro-year");    // Pro annuel
+  const btnCancel   = document.getElementById("cancel-pro");
+  const btnRefresh  = document.getElementById("pricing-refresh");
+  const btnReset    = document.getElementById("pricing-reset");
 
-  if (btnPack100)  btnPack100.onclick  = () => buyPack(100);
-  if (btnPack300) btnPack300.onclick = () => buyPack(300);
+  // Packs
+  if (btnPack100) {
+    btnPack100.onclick = () => {
+      buyPack100();
+      if (typeof toast === "function") toast("✅ Pack Basique activé");
+      else alert("✅ Pack Basique activé");
+      refreshPricingUI();
+    };
+  }
 
-  // switch possible (annuel <-> mensuel)
-  if (btnProM) btnProM.onclick = () => {
-    activatePro("month");
-    if (typeof toast === "function") toast("✅ Pro mensuel activé");
-    refreshPricingUI();
-  };
+  if (btnPack300) {
+    btnPack300.onclick = () => {
+      buyPack300();
+      if (typeof toast === "function") toast("✅ Pack Pro activé");
+      else alert("✅ Pack Pro activé");
+      refreshPricingUI();
+    };
+  }
 
-  if (btnProY) btnProY.onclick = () => {
-    activatePro("year");
-    if (typeof toast === "function") toast("✅ Pro annuel activé");
-    refreshPricingUI();
-  };
+  // Abonnement
+  if (btnProM) {
+    btnProM.onclick = () => {
+      activatePro("month");
+      if (typeof toast === "function") toast("✅ Business mensuel activé");
+      else alert("✅ Business mensuel activé");
+      refreshPricingUI();
+    };
+  }
 
-  // revenir en gratuit
-  if (btnCancel) btnCancel.onclick = () => {
-    cancelPro();
-    if (typeof toast === "function") toast("✅ Retour au gratuit");
-    refreshPricingUI();
-  };
+  if (btnProY) {
+    btnProY.onclick = () => {
+      activatePro("year");
+      if (typeof toast === "function") toast("✅ Business annuel activé");
+      else alert("✅ Business annuel activé");
+      refreshPricingUI();
+    };
+  }
 
-  if (btnRefresh) btnRefresh.onclick = () => refreshPricingUI();
+  // Annuler
+  if (btnCancel) {
+    btnCancel.onclick = () => {
+      cancelPro();
+      if (typeof toast === "function") toast("✅ Abonnement annulé");
+      else alert("✅ Abonnement annulé");
+      refreshPricingUI();
+    };
+  }
+
+  // Rafraîchir UI
+  if (btnRefresh) {
+    btnRefresh.onclick = () => refreshPricingUI();
+  }
 
   // Reset test
-  if (btnReset) btnReset.onclick = () => {
-    localStorage.removeItem("aliscan_billing_v2");
-    if (typeof toast === "function") toast("♻️ Reset OK");
-    refreshPricingUI();
-  };
+  if (btnReset) {
+    btnReset.onclick = () => {
+      localStorage.removeItem("aliscan_billing_v2");
+      if (typeof toast === "function") toast("♻️ Reset terminé");
+      else alert("♻️ Reset terminé");
+      refreshPricingUI();
+    };
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   bindPricingButtons();
   refreshPricingUI();
 });
-
 function getFreeUsed() {
   return parseInt(localStorage.getItem(OCR_USED_KEY) || "0", 10) || 0;
 }
