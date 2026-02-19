@@ -1053,7 +1053,36 @@ function isSubActive(b) {
 
 
 
+// ==============================
+// PRICING - BIND BUTTONS (1 fois)
+// ==============================
+function bindPricingButtons() {
+  const el = (id) => document.getElementById(id);
 
+  const btnPack100 = el("buy-pack-10");       // Pack 100
+  const btnPack300 = el("buy-pack-100");      // Pack 300
+  const btnProM    = el("buy-pro-month");     // Business mensuel
+  const btnProY    = el("buy-pro-year");      // Business annuel
+  const btnCancel  = el("cancel-pro");
+  const btnRefresh = el("pricing-refresh");
+  const btnReset   = el("pricing-reset");
+
+  if (btnPack100) btnPack100.onclick = () => { buyPack100(); refreshPricingUI(); };
+  if (btnPack300) btnPack300.onclick = () => { buyPack300(); refreshPricingUI(); };
+
+  if (btnProM) btnProM.onclick = () => { activatePro("month"); refreshPricingUI(); };
+  if (btnProY) btnProY.onclick = () => { activatePro("year"); refreshPricingUI(); };
+
+  if (btnCancel) btnCancel.onclick = () => { cancelPro(); refreshPricingUI(); };
+
+  if (btnRefresh) btnRefresh.onclick = () => refreshPricingUI();
+
+  if (btnReset) btnReset.onclick = () => {
+    localStorage.removeItem("aliscan_billing_v2");
+    refreshPricingUI();
+    location.reload();
+  };
+}
 
 
 document.addEventListener("DOMContentLoaded", () => {
