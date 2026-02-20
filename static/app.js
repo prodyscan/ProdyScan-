@@ -5880,3 +5880,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btn) setTimeout(renderTraining, 50);
   });
 })();
+
+
+// ===============================
+// ✅ MENU TOGGLE (SAFE OVERRIDE)
+// ===============================
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("menu-toggle");
+  const menu = document.getElementById("main-menu");
+
+  if (!btn || !menu) {
+    alert("Menu debug: btn=" + !!btn + " menu=" + !!menu);
+    return;
+  }
+
+  // Force état initial
+  if (!menu.classList.contains("menu-open") && !menu.classList.contains("menu-closed")) {
+    menu.classList.add("menu-closed");
+  }
+
+  // Remplace tout (évite conflits avec anciens listeners)
+  btn.onclick = (e) => {
+    e.preventDefault();
+    menu.classList.toggle("menu-open");
+    menu.classList.toggle("menu-closed");
+
+    // Debug (tu peux enlever après)
+    // alert("toggle: " + menu.className);
+  };
+});
