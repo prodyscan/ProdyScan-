@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aliscan — Abonnements</title>
+
+  <!-- Reprend ton CSS existant -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="logo-circle">A</div>
+      <div class="header-texts">
+        <h1>Abonnements</h1>
+        <p class="subtitle">Choisis ton offre. Les packs se cumulent et n’expirent pas.</p>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- STATUT -->
+      <section class="card">
+        <h2 style="margin:0 0 10px;">📊 Ton statut</h2>
+
+        <div class="grid-2">
+          <div class="pill">Plan : <b id="st-plan">—</b></div>
+          <div class="pill">Essai restant : <b id="st-trial">—</b></div>
+          <div class="pill">Pack crédits : <b id="st-packCredits">—</b></div>
+          <div class="pill">Pack saves : <b id="st-packSaves">—</b></div>
+          <div class="pill">Free/jour restant : <b id="st-freeLeft">—</b></div>
+          <div class="pill">🧠 Réponses IA restantes : <b id="st-aiLeft">—</b></div>
+          <div class="pill">Abonnement jusqu’au : <b id="st-subUntil">—</b></div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+          <button id="pricing-refresh" class="btn-secondary">🔄 Rafraîchir</button>
+          <button id="pricing-reset" class="btn-secondary">♻️ Reset test</button>
+          <a href="/" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
+            ⬅ Retour
+          </a>
+        </div>
+      </section>
+
+      <!-- OFFRES -->
+      <section class="pricing-grid" style="margin-top:14px; display:grid; gap:14px;">
+
+        <!-- ESSAI -->
+        <div class="card">
+          <div class="plan-header">
+            <h3 style="margin:0;">🎁 Essai</h3>
+            <span id="badge-trial" class="badge-active" hidden>ACTIF</span>
+          </div>
+          <ul class="list">
+            <li>✅ Essai gratuit (actions limitées)</li>
+            <li>✅ IA + analyse fournisseur + export/sauvegarde selon quota</li>
+            <li>⏳ Valable jusqu’à épuisement</li>
+          </ul>
+          <div class="note">Une fois terminé → mode Gratuit quotidien.</div>
+        </div>
+
+        <!-- GRATUIT -->
+        <div class="card">
+          <div class="plan-header">
+            <h3 style="margin:0;">🆓 Gratuit</h3>
+            <span id="badge-free" class="badge-active" hidden>ACTIF</span>
+          </div>
+          <ul class="list">
+            <li>✅ Tracking + conversion</li>
+            <li>✅ Calcul coût & marge</li>
+            <li>❌ Sauvegarde / Historique</li>
+            <li>❌ Export PDF/Excel</li>
+            <li>🧠 IA : quota / jour</li>
+          </ul>
+          <div class="note">Ex : après essai → analyses limitées / jour.</div>
+        </div>
+
+        <!-- PACK 100 -->
+        <div class="card">
+          <div class="plan-header">
+            <h3 style="margin:0;">📦 Pack 100</h3>
+            <span id="badge-pack100" class="badge-active" hidden>ACTIF</span>
+          </div>
+
+          <div style="font-size:18px; font-weight:800;">500 FCFA</div>
+
+          <ul class="list">
+            <li>✅ 100 analyses</li>
+            <li>✅ 100 enregistrements</li>
+            <li>✅ Export PDF/Excel</li>
+            <li>✅ Analyse capture + coût & marge</li>
+            <li>🧠 IA : 50 réponses</li>
+          </ul>
+
+          <button id="buy-pack-10" class="btn-primary" style="width:100%;">
+            Acheter Pack 100
+          </button>
+        </div>
+
+        <!-- PACK 300 -->
+        <div class="card">
+          <div class="plan-header">
+            <h3 style="margin:0;">📦 Pack 300</h3>
+            <span id="badge-pack300" class="badge-active" hidden>ACTIF</span>
+          </div>
+
+          <div style="font-size:18px; font-weight:800;">1000 FCFA</div>
+
+          <ul class="list">
+            <li>✅ 300 analyses</li>
+            <li>✅ 300 enregistrements</li>
+            <li>✅ Export PDF/Excel</li>
+            <li>✅ Analyse capture + coût & marge</li>
+            <li>🧠 IA : 120 réponses</li>
+          </ul>
+
+          <button id="buy-pack-100" class="btn-primary" style="width:100%;">
+            Acheter Pack 300
+          </button>
+        </div>
+
+        <!-- PRO / BUSINESS -->
+        <div class="card">
+          <div class="plan-header">
+            <h3 style="margin:0;">💎 Pro</h3>
+            <span id="badge-pro" class="badge-active" hidden>ACTIF</span>
+          </div>
+
+          <ul class="list">
+            <li>✅ Analyses illimitées</li>
+            <li>✅ Sauvegarde illimitée</li>
+            <li>✅ Export illimité</li>
+            <li>🧠 IA : quota mensuel élevé</li>
+          </ul>
+
+          <div style="display:grid; gap:10px; margin-top:10px;">
+            <button id="buy-pro-month" class="btn-primary">
+              Activer Mensuel — 2000 FCFA/mois
+            </button>
+
+            <button id="buy-pro-year" class="btn-primary">
+              Activer Annuel — 20000 FCFA/an
+            </button>
+
+            <button id="cancel-pro" class="btn-secondary" hidden>
+              Se désabonner (revenir au gratuit)
+            </button>
+          </div>
+
+          <div class="note" style="margin-top:10px;">
+            Si l’abonnement expire : retour en Free/Packs (tes packs restent).
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- Tu as 2 choix :
+       A) Si tu crées un fichier static/pricing.js, mets-le ici
+       B) Sinon laisse app.js si tout est dedans
+  -->
+
+  <!-- Option A -->
+  <!-- <script src="{{ url_for('static', filename='pricing.js') }}"></script> -->
+
+  <!-- Option B -->
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+
+</body>
+</html>

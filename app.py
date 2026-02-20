@@ -57,6 +57,11 @@ HTTP_HEADERS = {
 
 app = Flask(__name__)
 
+
+@app.get("/pricing")
+def pricing():
+    return render_template("pricing.html")
+
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
