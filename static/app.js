@@ -628,12 +628,15 @@ function paywallMsg() {
   // offres
   parts.push("");
   parts.push("✅ Packs :");
-  parts.push("• 500 FCFA → 100 analyses + 100 enregistrements + 50 réponses IA + export PDF/Excel");
-  parts.push("• 1000 FCFA → 300 analyses + 300 enregistrements + 120 réponses IA + export PDF/Excel");
+
+
+  parts.push("• 2 000 FCFA → 30 analyses + 30 sauvegardes + 100 réponses IA + export PDF/Excel");
+  parts.push("• 4 500 FCFA → 100 analyses + 100 sauvegardes + 250 réponses IA + export PDF/Excel");
   parts.push("");
   parts.push("✅ Abonnements :");
-  parts.push("• 2000 FCFA / mois → illimité (analyse + save + export) + IA : 300 réponses / mois");
-  parts.push("• 20 000 FCFA / an → illimité (analyse + save + export) + IA : 4000 réponses / an");
+  parts.push("• 5 000 FCFA / mois → illimité (analyse + save + export) + IA : 5 000 réponses / mois");
+  parts.push("• 50 000 FCFA / an → illimité (analyse + save + export) + IA : 5 000 réponses / mois");
+
 
   return parts.join("\n");
 }
