@@ -5812,31 +5812,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-  (function fixScreenNav() {
-    const menu = document.getElementById("main-menu");
-    if (!menu) return;
-
-    function showScreen(id) {
-      document.querySelectorAll(".screen").forEach((s) => {
-        s.hidden = (s.id !== id);
-      });
-
-      document.querySelectorAll(".menu-btn").forEach((b) => {
-        b.classList.toggle("menu-btn-active", b.dataset.screen === id);
-      });
-    }
-
-    menu.addEventListener("click", (e) => {
-      const btn = e.target.closest(".menu-btn");
-      if (!btn) return;
-
-      const target = btn.dataset.screen;
-      if (!target) return;
-
-      showScreen(target);
-    });
-  })();
-});
 
 
 // ===========================
