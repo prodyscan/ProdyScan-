@@ -5510,34 +5510,19 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ✅ seulement les boutons avec data-screen (pas le lien /pricing)
-  const menuButtons = document.querySelectorAll(".menu-btn[data-screen]");
-  const menuToggle = document.getElementById("menu-toggle");
-  const mainMenu = document.getElementById("main-menu");
+// ✅ MENU TOGGLE (VERSION UNIQUE, SÛRE)
+const menuToggle =
+  document.getElementById("menu-toggle") ||
+  document.querySelector('[data-role="menu-toggle"]') ||
+  document.querySelector(".menu-toggle");
 
-  function showScreen(name) {
-    Object.entries(screens).forEach(([key, el]) => {
-      if (!el) return;
-      el.hidden = key !== name;
-    });
+const mainMenu =
+  document.getElementById("main-menu") ||
+  document.querySelector('[data-role="main-menu"]') ||
+  document.querySelector("nav#main-menu") ||
+  document.querySelector("nav.main-menu");
 
-    menuButtons.forEach((btn) => {
-      btn.classList.toggle("menu-btn-active", btn.dataset.screen === name);
-    });
-  }
 
-  // clic sur les boutons du menu
-  menuButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const screen = btn.dataset.screen;
-      if (screen) showScreen(screen);
-
-      // refermer le menu mobile
-      if (mainMenu) {
-        mainMenu.classList.remove("menu-open");
-        mainMenu.classList.add("menu-closed");
-      }
-    });
-  });
 
   // bouton ☰
   if (menuToggle && mainMenu) {
