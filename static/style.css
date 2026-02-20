@@ -2476,12 +2476,6 @@ button.btn-primary:disabled {
    MENU BOUTONS ALIGNÉS
 ========================= */
 
-#main-menu {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* 2 colonnes */
-  gap: 12px;
-  margin-top: 15px;
-}
 
 .menu-btn {
   width: 100%;
