@@ -5495,46 +5495,37 @@ if (googleRateBtn) {
   });
 }
 
+
+
 // --------------------------------------------------
-// 5) NAVIGATION ENTRE LES ÉCRANS + MENU
+// 5) NAVIGATION ENTRE LES ÉCRANS + MENU (FIX)
 // --------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const screens = {
+    "screen-ocr": document.getElementById("screen-ocr"),
+    "screen-calc": document.getElementById("screen-calc"),
+    "screen-conv": document.getElementById("screen-conv"),
+    "screen-tracking": document.getElementById("screen-tracking"),
+    // ⚠️ Ne mets PAS screen-pricing ici si tu utilises /pricing
+  };
 
-// Écrans
-const screens = {
-  "screen-ocr":     document.getElementById("screen-ocr"),   
-  "screen-analyse": document.getElementById("screen-analyse"),
-  "screen-calc":    document.getElementById("screen-calc"),
-  "screen-conv":    document.getElementById("screen-conv"),
-  "screen-tracking": document.getElementById("screen-tracking"),
-  
-  "screen-pricing": document.getElementById("screen-pricing"),
-};
+  // ✅ seulement les boutons avec data-screen (pas le lien /pricing)
+  const menuButtons = document.querySelectorAll(".menu-btn[data-screen]");
+  const menuToggle = document.getElementById("menu-toggle");
+  const mainMenu = document.getElementById("main-menu");
 
-const menuButtons = document.querySelectorAll(".menu-btn");
-// alert("📌 menuButtons trouvés = " + menuButtons.length);
-const menuToggle  = document.getElementById("menu-toggle");
-const mainMenu    = document.getElementById("main-menu");
+  function showScreen(name) {
+    Object.entries(screens).forEach(([key, el]) => {
+      if (!el) return;
+      el.hidden = key !== name;
+    });
 
-function showScreen(name) {
-// alert("📌 showScreen appelée : " + name);
-  // afficher / cacher les écrans
-  Object.entries(screens).forEach(([key, el]) => {
-    if (!el) return;
-    el.hidden = key !== name;
-  });
+    menuButtons.forEach((btn) => {
+      btn.classList.toggle("menu-btn-active", btn.dataset.screen === name);
+    });
+  }
 
-  // état visuel des boutons du menu
-  menuButtons.forEach((btn) => {
-    if (btn.dataset.screen === name) {
-      btn.classList.add("menu-btn-active");
-    } else {
-      btn.classList.remove("menu-btn-active");
-    }
-  });
-}
-
-// Clic sur les boutons du menu
-if (menuButtons.length) {
+  // clic sur les boutons du menu
   menuButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const screen = btn.dataset.screen;
@@ -5547,24 +5538,18 @@ if (menuButtons.length) {
       }
     });
   });
-}
 
-// Bouton ☰ pour ouvrir / fermer le menu
-if (menuToggle && mainMenu) {
-  menuToggle.addEventListener("click", () => {
-    if (mainMenu.classList.contains("menu-open")) {
-      mainMenu.classList.remove("menu-open");
-      mainMenu.classList.add("menu-closed");
-    } else {
-      mainMenu.classList.remove("menu-closed");
-      mainMenu.classList.add("menu-open");
-    }
-  });
-}
+  // bouton ☰
+  if (menuToggle && mainMenu) {
+    menuToggle.addEventListener("click", () => {
+      mainMenu.classList.toggle("menu-open");
+      mainMenu.classList.toggle("menu-closed");
+    });
+  }
 
-// Écran par défaut : analyse de images
-showScreen("screen-ocr");
-
+  // écran par défaut
+  showScreen("screen-ocr");
+});
 // --------------------------------------------------
 // 5 bis) TRACKING DE COLIS (appel /track)
 // --------------------------------------------------
