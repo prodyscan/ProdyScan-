@@ -921,6 +921,7 @@ function monthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+
 function getBilling() {
   try {
     const b = JSON.parse(localStorage.getItem(BILLING_KEY) || "{}");
@@ -928,17 +929,31 @@ function getBilling() {
     const ym = monthKey();
 
     // normalize
-    if (!b.freeDay || b.freeDay.date !== t) b.freeDay = { date: t, used: 0 };
-    if (!b.aiFreeDay || b.aiFreeDay.date !== t) b.aiFreeDay = { date: t, used: 0 };
-    if (!b.aiMonth || b.aiMonth.ym !== ym) b.aiMonth = { ym, used: 0 };
+    if (!b.freeDay || b.freeDay.date !== t) {
+      b.freeDay = { date: t, used: 0 };
+    }
+
+    if (!b.aiFreeDay || b.aiFreeDay.date !== t) {
+      b.aiFreeDay = { date: t, used: 0 };
+    }
+
+    if (!b.aiMonth || b.aiMonth.ym !== ym) {
+      b.aiMonth = { ym, used: 0 };
+    }
 
     return {
-      trialLeft: Number(b.trialLeft ?? 25),      // ESSAI OCR (25 actions)
+      // ✅ ESSAI OCR = 3 analyses
+      trialLeft: Number(b.trialLeft ?? 3),
+
       packCredits: Number(b.packCredits ?? 0),
       packSaves: Number(b.packSaves ?? 0),
 
-      // IA
+      // ✅ IA
       aiPack: Number(b.aiPack ?? 0),
+
+      // ✅ ESSAI IA = 10 réponses
+      aiTrialOnce: Number(b.aiTrialOnce ?? 10),
+
       aiMonthLimit: Number(b.aiMonthLimit ?? 300),
       aiMonth: b.aiMonth,
       aiFreeDay: b.aiFreeDay,
@@ -952,18 +967,24 @@ function getBilling() {
 
       ...b,
     };
+
   } catch {
     const t = todayKey();
     const ym = monthKey();
+
     return {
-      trialLeft: 25,
+      trialLeft: 3,
       packCredits: 0,
       packSaves: 0,
+
       aiPack: 0,
+      aiTrialOnce: 10,
       aiMonthLimit: 300,
       aiMonth: { ym, used: 0 },
       aiFreeDay: { date: t, used: 0 },
+
       freeDay: { date: t, used: 0 },
+
       subUntil: 0,
       subPlan: "",
     };
