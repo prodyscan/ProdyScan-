@@ -2176,13 +2176,9 @@ button.btn-primary:disabled {
 
 
 
-#main-menu.menu-closed {
-  display: none !important;
-}
-#main-menu {
-  display: block;
-}
-
+#main-menu.menu-closed { display: none !important; }
+#main-menu.menu-open { display: flex !important; }
+#main-menu { display: flex; }
 
 
 
