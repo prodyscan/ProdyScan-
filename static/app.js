@@ -147,18 +147,6 @@ function limitedAlert(key, msg, max = 5) {
 }
 
 
-document.addEventListener("DOMContentLoaded", () => {
-  // COST
-  showCalcExportButtons(false, "cost");
-
-  // MARGIN
-  showCalcExportButtons(false, "margin");
-
-  // OCR (sécurité)
-  if (typeof updateOcrExportButtons === "function") {
-    updateOcrExportButtons();
-  }
-});
 
 const lastMargin = {
   costUnit: 0,
@@ -348,22 +336,11 @@ function resetOcrUI() {
 }
  
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll("button, a").forEach((el) => {
-    el.addEventListener("click", () => {
-      closeRecipientModal();
-    });
-  });
-});
 
 
 
 // ==============================
 // 💳 PAYWALL V2 (Billing v2)
-// - Essai 1 fois : 25 analyses (save/export OK+ IA)
-// - Après essai : 3 analyses / jour (save/export OFF)
-// - Packs cumulables : 100 (500 FCFA) / 300 (1000 FCFA)
-// - Abonnements : 2000/mois illimité, 20000/an illimité+IA: 600/ans
 // ==============================
 
 const PLAN_KEY = "aliscan_plan";
@@ -610,37 +587,6 @@ window.setBilling = setBilling;
 window.canUseAI = canUseAI;
 window.consumeAI = consumeAI;
 
-// ✅ Message paywall (affiche aussi ce qu’il reste)
-function paywallMsg() {
-  const b = getBilling();
-  const freeLeft = getFreeRemaining(b);
-
-  const parts = [];
-  parts.push("❌ Limite atteinte.");
-
-  // infos restantes
-  parts.push(`Essai restant : ${b.trialLeft || 0}/${TRIAL_MAX}`);
-  parts.push(`IA (essai) restant : ${b.trialLeft || 0}`);
-  parts.push(`Pack restant : ${b.packCredits || 0} analyse(s)`);
-  parts.push(`Gratuit/jour restant : ${freeLeft}/3`);
-  parts.push(`IA pack restant : ${b.aiPack || 0} réponse(s)`);
-
-  // offres
-  parts.push("");
-  parts.push("✅ Packs :");
-
-
-  parts.push("• 2 000 FCFA → 30 analyses + 30 sauvegardes + 100 réponses IA + export PDF/Excel");
-  parts.push("• 4 500 FCFA → 100 analyses + 100 sauvegardes + 250 réponses IA + export PDF/Excel");
-  parts.push("");
-  parts.push("✅ Abonnements :");
-  parts.push("• 5 000 FCFA / mois → illimité (analyse + save + export) + IA : 5 000 réponses / mois");
-  parts.push("• 50 000 FCFA / an → illimité (analyse + save + export) + IA : 5 000 réponses / mois");
-
-
-  return parts.join("\n");
-}
-
 
 
 
@@ -657,32 +603,23 @@ function askRecipient() {
   });
 }
 
-async function buyPack(amount) {
-  const who = await askRecipient();
-
-  if (who === "friend") {
-    toast(`🎁 Pack ${amount} payé pour un ami`);
-    return;
-  }
-
+function buyPackBasique() {
   const b = getBilling();
-
-  // packs analyses & saves
-  b.packCredits = (b.packCredits || 0) + amount;
-  b.packSaves   = (b.packSaves || 0) + amount;
-
-  // ✅ AJOUT IA
-  if (amount === 100) {        // Pack 500 FCFA
-    b.aiPack = (b.aiPack || 0) + 50;
-  } else if (amount === 300) { // Pack 1000 FCFA
-    b.aiPack = (b.aiPack || 0) + 120;
-  }
-
+  b.packCredits = (b.packCredits || 0) + 30;
+  b.packSaves   = (b.packSaves   || 0) + 30;
+  b.aiPack      = (b.aiPack      || 0) + 100;
   setBilling(b);
-
-  toast(`✅ Pack ${amount} ajouté à votre compte`);
-  refreshPricingUI();
 }
+
+function buyPackPro() {
+  const b = getBilling();
+  b.packCredits = (b.packCredits || 0) + 100;
+  b.packSaves   = (b.packSaves   || 0) + 100;
+  b.aiPack      = (b.aiPack      || 0) + 250;
+  setBilling(b);
+}
+
+
 // ------------------------------
 // API simple pour tests (comme ton window.Paywall)
 // ------------------------------
@@ -855,41 +792,32 @@ function refreshPricingUI() {
   }
 
 // ===== Date fin abonnement =====
+// ===== Date fin abonnement =====
 if (el("st-subUntil")) {
   el("st-subUntil").textContent = sub
     ? new Date(b.subUntil).toLocaleDateString("fr-FR")
     : "—";
 }
 
-  // BOUTONS (état/texte seulement)
-
-// BOUTONS (état/texte seulement)
+// ===== BOUTONS (état/texte seulement) =====
 const btnM = el("buy-pro-month");
 const btnY = el("buy-pro-year");
 const btnCancel = el("cancel-pro");
 
 if (btnM) {
   const active = sub && b.subPlan === "month";
-
   btnM.textContent = active
     ? "✅ Business mensuel actif"
-    : (sub
-        ? "Passer en Mensuel — 5000 FCFA/mois"
-        : "Activer Mensuel — 5000 FCFA/mois");
-
+    : (sub ? "Changer vers Business mensuel" : "Activer Business mensuel");
   btnM.disabled = false;
   btnM.classList.toggle("btn-active", active);
 }
 
 if (btnY) {
   const active = sub && b.subPlan === "year";
-
   btnY.textContent = active
     ? "✅ Business annuel actif"
-    : (sub
-        ? "Passer en Annuel — 50 000 FCFA/an"
-        : "Activer Annuel — 50 000 FCFA/an");
-
+    : (sub ? "Changer vers Business annuel" : "Activer Business annuel");
   btnY.disabled = false;
   btnY.classList.toggle("btn-active", active);
 }
@@ -897,10 +825,6 @@ if (btnY) {
 if (btnCancel) {
   btnCancel.hidden = !sub; // visible uniquement si abonnement actif
 }
-
-// Sauvegarde état (utile si reset freeDay auto)
-setBilling(b);
-
 
 
 // --- Modal (Moi / Ami) ---
@@ -1059,39 +983,57 @@ function isSubActive(b) {
 // ==============================
 // PRICING - BIND BUTTONS (1 fois)
 // ==============================
+
+
 function bindPricingButtons() {
   const el = (id) => document.getElementById(id);
 
-  const btnPack100 = el("buy-pack-10");       // Pack 100
-  const btnPack300 = el("buy-pack-100");      // Pack 300
-  const btnProM    = el("buy-pro-month");     // Business mensuel
-  const btnProY    = el("buy-pro-year");      // Business annuel
-  const btnCancel  = el("cancel-pro");
-  const btnRefresh = el("pricing-refresh");
-  const btnReset   = el("pricing-reset");
+  const btnPackBasique = el("buy-pack-10");   // Basique (2000)
+  const btnPackPro     = el("buy-pack-100");  // Pro (4500)
+  const btnSubM        = el("buy-pro-month"); // Business mensuel (5000/mois)
+  const btnSubY        = el("buy-pro-year");  // Business annuel (50 000/an)
+  const btnCancel      = el("cancel-pro");
+  const btnRefresh     = el("pricing-refresh");
+  const btnReset       = el("pricing-reset");
 
-  if (btnPack100) btnPack100.onclick = () => { buyPack100(); refreshPricingUI(); };
-  if (btnPack300) btnPack300.onclick = () => { buyPack300(); refreshPricingUI(); };
+  // Packs
+  if (btnPackBasique) btnPackBasique.onclick = () => {
+    buyPackBasique();          // ✅ ta nouvelle fonction
+    refreshPricingUI();
+  };
 
-  if (btnProM) btnProM.onclick = () => { activatePro("month"); refreshPricingUI(); };
-  if (btnProY) btnProY.onclick = () => { activatePro("year"); refreshPricingUI(); };
+  if (btnPackPro) btnPackPro.onclick = () => {
+    buyPackPro();              // ✅ ta nouvelle fonction
+    refreshPricingUI();
+  };
 
-  if (btnCancel) btnCancel.onclick = () => { cancelPro(); refreshPricingUI(); };
+  // Abonnement (Business)
+  if (btnSubM) btnSubM.onclick = () => {
+    activatePro("month");
+    refreshPricingUI();
+  };
 
+  if (btnSubY) btnSubY.onclick = () => {
+    activatePro("year");
+    refreshPricingUI();
+  };
+
+  // Annuler
+  if (btnCancel) btnCancel.onclick = () => {
+    cancelPro();
+    refreshPricingUI();
+  };
+
+  // Refresh
   if (btnRefresh) btnRefresh.onclick = () => refreshPricingUI();
 
+  // Reset test
   if (btnReset) btnReset.onclick = () => {
     localStorage.removeItem("aliscan_billing_v2");
-    refreshPricingUI();
     location.reload();
   };
 }
 
-
-document.addEventListener("DOMContentLoaded", () => {
-  bindPricingButtons();
-  refreshPricingUI();
-});
 
 function getFreeUsed() {
   return parseInt(localStorage.getItem(OCR_USED_KEY) || "0", 10) || 0;
@@ -1580,18 +1522,6 @@ function parseDetailPairs(text) {
 }
 
 
-document.addEventListener("DOMContentLoaded", () => {
-  // cacher les 2 zones actions au démarrage
-  const costActions = document.getElementById("cost-actions");
-  const marginActions = document.getElementById("margin-actions");
-
-  if (costActions) costActions.hidden = true;
-  if (marginActions) marginActions.hidden = true;
-
-  // et cacher individuellement les boutons
-  showCalcExportButtons(false, "cost");
-  showCalcExportButtons(false, "margin");
-});
 
 
 // ==============================
@@ -5784,10 +5714,23 @@ if (trackingInput) {
 
   
 document.addEventListener("DOMContentLoaded", () => {
-  renderCalcHistory();
-  renderHistory();
-  showError("");
-  setLoading(false);
+
+  // ✅ Guard: évite double init si jamais un autre listener traîne
+  if (window.__ALISCAN_INIT_DONE__) return;
+  window.__ALISCAN_INIT_DONE__ = true;
+
+  // ===============================
+  // 🔹 INIT HISTORIQUE & UI
+  // ===============================
+
+  if (typeof renderCalcHistory === "function") renderCalcHistory();
+  if (typeof renderHistory === "function") renderHistory();
+  if (typeof showError === "function") showError("");
+  if (typeof setLoading === "function") setLoading(false);
+
+  // ===============================
+  // 🔹 BOUTONS SAVE
+  // ===============================
 
   const saveCostBtn = document.getElementById("cost-save-btn");
   const saveMarginBtn = document.getElementById("margin-save-btn");
@@ -5795,18 +5738,59 @@ document.addEventListener("DOMContentLoaded", () => {
   if (saveCostBtn) {
     saveCostBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      saveCost();
+      if (typeof saveCost === "function") saveCost();
     });
   }
 
   if (saveMarginBtn) {
     saveMarginBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      saveMargin();
+      if (typeof saveMargin === "function") saveMargin();
     });
   }
 
-  // ✅ Navigation des écrans via le menu
+  // ===============================
+  // 🔹 CACHE ACTIONS AU DEMARRAGE
+  // ===============================
+
+  const costActions = document.getElementById("cost-actions");
+  const marginActions = document.getElementById("margin-actions");
+
+  if (costActions) costActions.hidden = true;
+  if (marginActions) marginActions.hidden = true;
+
+  if (typeof showCalcExportButtons === "function") {
+    showCalcExportButtons(false, "cost");
+    showCalcExportButtons(false, "margin");
+  }
+
+  if (typeof updateOcrExportButtons === "function") {
+    updateOcrExportButtons();
+  }
+
+  // ===============================
+  // 🔹 FERMETURE MODAL PACK
+  // ===============================
+
+  document.querySelectorAll("button, a").forEach((el) => {
+    el.addEventListener("click", () => {
+      if (typeof closeRecipientModal === "function") {
+        closeRecipientModal();
+      }
+    });
+  });
+
+  // ===============================
+  // 🔹 PRICING (uniquement si page /pricing)
+  // ===============================
+
+  if (typeof bindPricingButtons === "function") bindPricingButtons();
+  if (typeof refreshPricingUI === "function") refreshPricingUI();
+
+});
+
+
+
   (function fixScreenNav() {
     const menu = document.getElementById("main-menu");
     if (!menu) return;
